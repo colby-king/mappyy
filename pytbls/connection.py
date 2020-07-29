@@ -1,0 +1,74 @@
+import pyodbc
+
+
+class Driver(object):
+
+	def __init__(self, cnxn_str):
+		self.cnxn_str = cnxn_str
+		self.cnxn = pyodbc.connect(cnxn_str, autocommit=True)
+
+
+	def _results_to_dict(self, data, cursor):
+		cols = [col[0] for col in cursor.description]
+		data_dict = []
+		for row in data:
+			data_dict.append(dict(zip(cols, row)))
+		return data_dict
+
+	def execute(self, sql, *args, to_dict=False, fetchone=False):
+		cursor = self.cnxn.cursor()
+		data = cursor.execute(sql, *args).fetchall()
+		if to_dict:
+			return self._results_to_dict(data, cursor)
+		return data
+
+	def write(self, sql, *args):
+		cursor = self.cnxn.cursor()
+		cursor.execute(sql, *args)
+		last_id = cursor.execute('SELECT @@IDENTITY').fetchone()
+		return last_id[0]
+
+
+
+class DBClient(object):
+
+	def __init__(self, cnxn_str):
+
+		if not cnxn_str:
+			raise ValueError("Connection string must not be blank or None")
+
+		self.driver = Driver(cnxn_str)
+		self.__set_db_name()
+
+
+	def __set_db_name(self):
+		self.db_name = self.driver.execute("SELECT DB_NAME();");
+
+
+
+
+	def query_table_def(self, tablename):
+		qry_column_info = """
+			  SELECT c.name,
+			       c.max_length,
+			       c.precision,
+			       c.scale,
+			       c.is_nullable,
+			       t.name [data_type],
+				   c.object_id,
+				   c.column_id,
+				   CASE WHEN ind.is_primary_key = 1 THEN 1 ELSE 0 END AS is_primary_key
+			  FROM sys.columns c
+			  JOIN sys.types   t
+			    ON c.user_type_id = t.user_type_id
+			  CROSS APPLY (SELECT MAX(CASE WHEN ind.is_primary_key = 1 THEN 1 ELSE 0 END) AS is_primary_key FROM sys.index_columns ic
+						   LEFT JOIN sys.indexes ind on ind.object_id = ic.object_id AND ind.index_id = ic.index_id
+						   WHERE c.object_id = ic.object_id AND c.column_id = ic.column_id) AS ind
+			 WHERE c.object_id    = Object_id(?)
+		"""
+		# Query Data
+		table_def = self.driver.execute(qry_column_info, tablename, to_dict=True)
+		return table_def
+
+
+
