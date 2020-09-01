@@ -21,25 +21,26 @@ def main():
 	#tblLocationCodes_def = TableDefinition(definition, 'tblLocationCodes')
 
 	loc_data = {
-	"IDSegment": 1,
-	"IDSite": 180,
+	"IDSegment": 4,
+	"IDSite": 9,
 	"IDBuilding": 177,
-	"Code": "123",
+	"Code": "rddizdd",
 	"Description": "Location",
 	"Show": 1,
 	"IDAccount":None,
 	"ShowInQuery": 1,
-	"IDSpace": 0,
+	"IDSpace": None,
 	"IsMeterLocation": 0,
 	"TagNumber": None,
-	#"DateCreated":datetime.datetime.now(),
+	"DateCreated":datetime.datetime.now(),
 	"DateUpdated": datetime.datetime.now()
 	}
 
 	#mr = MappyRow(tblLocationCodes_def, loc_data)
 	#print(mr.sql_insert)
 
-	tbl = MappyTable(None, definition, 'tblLocationCodes')
-
+	tbl = MappyTable(client.driver, definition, 'tblLocationCodes')
+	new_row = tbl.add(loc_data)
+	print(new_row.data_row)
 
 main()

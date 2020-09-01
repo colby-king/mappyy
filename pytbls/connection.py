@@ -5,7 +5,7 @@ class Driver(object):
 
 	def __init__(self, cnxn_str):
 		self.cnxn_str = cnxn_str
-		self.cnxn = pyodbc.connect(cnxn_str, autocommit=True)
+		self.cnxn = pyodbc.connect(cnxn_str, autocommit=False)
 
 
 	def _results_to_dict(self, data, cursor):
@@ -15,19 +15,29 @@ class Driver(object):
 			data_dict.append(dict(zip(cols, row)))
 		return data_dict
 
-	def execute(self, sql, *args, to_dict=False, fetchone=False):
+	def read(self, sql, *args, to_dict=False, fetchone=False):
 		cursor = self.cnxn.cursor()
 		data = cursor.execute(sql, *args).fetchall()
+		self.commit()
 		if to_dict:
 			return self._results_to_dict(data, cursor)
 		return data
 
-	def write(self, sql, *args):
+	def write(self, sql, *args, commit=True):
 		cursor = self.cnxn.cursor()
 		cursor.execute(sql, *args)
 		last_id = cursor.execute('SELECT @@IDENTITY').fetchone()
-		return last_id[0]
+		if commit:
+			self.commit()
+		return int(last_id[0])
 
+	def commit(self):
+		"""Commits a transaction on the current connection"""
+		self.cnxn.commit()
+
+	def rollback(self):
+		"""rolls back a transaction on the current connection"""
+		self.cnxn.rollback()
 
 
 class DBClient(object):
@@ -42,12 +52,13 @@ class DBClient(object):
 
 
 	def __set_db_name(self):
-		self.db_name = self.driver.execute("SELECT DB_NAME();");
+		self.db_name = self.driver.read("SELECT DB_NAME();");
 
 
 
 
 	def query_table_def(self, tablename):
+		"""Executres """
 		qry_column_info = """
 			  SELECT c.name,
 			       c.max_length,
@@ -67,7 +78,7 @@ class DBClient(object):
 			 WHERE c.object_id    = Object_id(?)
 		"""
 		# Query Data
-		table_def = self.driver.execute(qry_column_info, tablename, to_dict=True)
+		table_def = self.driver.read(qry_column_info, tablename, to_dict=True)
 		return table_def
 
 

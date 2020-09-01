@@ -2,24 +2,24 @@ import pytest
 
 from pytbls.tables import *
 
-class TestTableDefinition:
+class TestMappyRow:
 
 	@pytest.fixture(scope='module', autouse=True)
 	def table_def(self):
 		table_def = [
-			{'name': 'AddressID', 'max_length': 4, 'precision': 10, 'scale': 0, 'is_nullable': False, 'data_type': 'int'},
-			{'name': 'AddressLine1', 'max_length': 120, 'precision': 0, 'scale': 0, 'is_nullable': False, 'data_type': 'nvarchar'},
-			{'name': 'AddressLine2', 'max_length': 120, 'precision': 0, 'scale': 0, 'is_nullable': True, 'data_type': 'nvarchar'},
-			{'name': 'City', 'max_length': 60, 'precision': 0, 'scale': 0, 'is_nullable': False, 'data_type': 'nvarchar'},
-			{'name': 'StateProvinceID', 'max_length': 4, 'precision': 10, 'scale': 0, 'is_nullable': False, 'data_type': 'int'},
-			{'name': 'PostalCode', 'max_length': 30, 'precision': 0, 'scale': 0, 'is_nullable': False, 'data_type': 'nvarchar'},
-			{'name': 'SpatialLocation', 'max_length': -1, 'precision': 0, 'scale': 0, 'is_nullable': True, 'data_type': 'geography'},
-			{'name': 'rowguid', 'max_length': 16, 'precision': 0, 'scale': 0, 'is_nullable': False, 'data_type': 'uniqueidentifier'},
-			{'name': 'ModifiedDate', 'max_length': 8, 'precision': 23, 'scale': 3, 'is_nullable': False, 'data_type': 'datetime'}
+			{'name': 'AddressID', 'max_length': 4, 'precision': 10, 'scale': 0, 'is_nullable': False, 'data_type': 'int', 'column_id': 1, 'is_primary_key': True},
+			{'name': 'AddressLine1', 'max_length': 120, 'precision': 0, 'scale': 0, 'is_nullable': False, 'data_type': 'nvarchar', 'column_id': 2, 'is_primary_key': False},
+			{'name': 'AddressLine2', 'max_length': 120, 'precision': 0, 'scale': 0, 'is_nullable': True, 'data_type': 'nvarchar', 'column_id': 3, 'is_primary_key': False},
+			{'name': 'City', 'max_length': 60, 'precision': 0, 'scale': 0, 'is_nullable': False, 'data_type': 'nvarchar', 'column_id': 4, 'is_primary_key': False},
+			{'name': 'StateProvinceID', 'max_length': 4, 'precision': 10, 'scale': 0, 'is_nullable': False, 'data_type': 'int', 'column_id': 5, 'is_primary_key': False},
+			{'name': 'PostalCode', 'max_length': 30, 'precision': 0, 'scale': 0, 'is_nullable': False, 'data_type': 'nvarchar', 'column_id': 6, 'is_primary_key': False},
+			{'name': 'SpatialLocation', 'max_length': -1, 'precision': 0, 'scale': 0, 'is_nullable': True, 'data_type': 'geography', 'column_id': 7, 'is_primary_key': False},
+			{'name': 'rowguid', 'max_length': 16, 'precision': 0, 'scale': 0, 'is_nullable': False, 'data_type': 'uniqueidentifier', 'column_id': 8, 'is_primary_key': False},
+			{'name': 'ModifiedDate', 'max_length': 8, 'precision': 23, 'scale': 3, 'is_nullable': False, 'data_type': 'datetime', 'column_id': 9, 'is_primary_key': False}
 		]
 		return table_def
 
-	@pytest.fixture(scope='module', autouse=True)
+	@pytest.fixture(scope='function', autouse=True)
 	def data(self):
 		data = {
 			'AddressID': '',
@@ -34,15 +34,21 @@ class TestTableDefinition:
 		}
 		return data
 
-	@pytest.fixture(scope='module', autouse=True)
-	def tablename(self):
-		return 'Address'
+	@pytest.fixture(scope='function', autouse=True)
+	def mappy_row(self, mocker, data, table_def):
+		td = TableDefinition(table_def, 'people')
+		return MappyRow(td, data)
 
 
-	def test_required_fields(self, table_def, data, tablename):
-		row = MappyRow(table_def, data)
-		actual = data.values()
-		assert tbldef.values == data.values()
+	def test_row_values(self, table_def, data, mappy_row):
+		actual = list(data.values())
+		assert mappy_row.values == actual
+
+	def test_row_column_names(self, table_def, data, mappy_row):
+		actual = list(data.keys())
+		assert mappy_row.column_names == actual
+
+
 
 		
 

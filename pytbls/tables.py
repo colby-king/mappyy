@@ -110,6 +110,14 @@ class ColumnDefinition(object):
 
 	def __repr__(self):
 		return 'Column(name: {})'.format(self.name)
+
+	def __eq__(self, other):
+		if isinstance(other, ColumnDefinition):
+			return other.name == self.name
+		return False
+
+	def __hash__(self):
+		return hash(self.name)
 	
 	
 class MappyRow(object):
@@ -118,6 +126,18 @@ class MappyRow(object):
 		data_row.update(data)
 		self._data_row = data_row
 		self.__validate()
+
+	def set_pk(self, value):
+		pk = self.tabledef.primary_key
+		if pk in self.data_row or self.data_row.get(pk) is not None:
+			raise DataValidationError('Primary key has already been set for this row')
+		self.__update(pk, value)
+
+	def __update(self, key, value):
+		if key in self.tabledef.columns:
+			self.data_row[key.name] = value
+		else:
+			raise pytbls.exceptions.DataValidationError("Attribute '{}' does not exist on table {}".format(key, self.tabledef.name))
 
 	@property
 	def unmatched_data(self):
@@ -151,11 +171,23 @@ class MappyRow(object):
 		return sql
 
 	def __validate(self):
-
+		pk_name = self.tabledef.primary_key.name
 		for column in self.tabledef.required_columns:
-			if column.name not in self.data_row and column.name != self.tabledef.primary_key.name:
+			if column.name not in self.data_row and column.name != pk_name:
 				raise pytbls.exceptions.DataValidationError("Attribute '{}' is required and is None".format(column.name))
 
+	def __getitem__(self, key):
+		return self.data_row[key]
+
+	def __setitem(self, key, value):
+		self.__update(key, value)
+
+
+	def __repr__(self):
+		"""Returns repr for dictionary of all data
+		   Change to only print staged data 
+		"""
+		return self.data_row.__repr__()
 
 	
 	
@@ -166,7 +198,29 @@ class MappyTable(TableDefinition):
 		super().__init__(tabledef, tablename, *args, create_col_defs=True)
 		self.__driver = driver
 
-		print(self.name)
+
+	def add(self, data_dict, commit=True, **data):
+		data_dict.update(data)
+		row = MappyRow(self, data_dict)
+		row_id = self.__driver.write(row.sql_insert, row.values)
+		row.set_pk(row_id)
+		return row
+		
+
+
+	def add_all(self, data_list, chunksize=None):
+		pass
+
+
+
+def read_csv(filename):
+	data = []
+	with open(filename) as f:
+		data_reader = csv.DictReader(f)
+		for row in data_reader:
+			data.append(row)
+
+	return data
 
 
 	
