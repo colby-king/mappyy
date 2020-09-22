@@ -53,6 +53,9 @@ class TableDefinition(object):
 	@property
 	def columns(self):
 		return [col for name, col in self._columns.items()]
+
+	def __iter__(self):
+		return iter(self.columns)
 	
 
 		
@@ -96,6 +99,11 @@ class ColumnDefinition(object):
 	@property
 	def is_nullable(self):
 		return self._is_nullable
+
+	@property
+	def required(self):
+		return self.is_nullable
+	
 
 	@property
 	def data_type(self):
@@ -205,22 +213,67 @@ class MappyTable(TableDefinition):
 		row_id = self.__driver.write(row.sql_insert, row.values)
 		row.set_pk(row_id)
 		return row
-		
+
+	def test_data(self, data_dict, **data):
+		pass
 
 
 	def add_all(self, data_list, chunksize=None):
 		pass
 
+	def print_info(self):
+		for col in self:
+			print(col.name, "\t\t\t", col.required)
 
 
-def read_csv(filename):
+
+def read_csv(filename, read_blank_as=None, strip=True, remove_newlines=' '):
 	data = []
 	with open(filename) as f:
 		data_reader = csv.DictReader(f)
 		for row in data_reader:
-			data.append(row)
+			d = {k: None if v == '' else v.strip().replace('\n', ' ') for k, v in row.items()}
+			data.append(dict(d))
 
 	return data
 
 
+def print_dict_as_table(d, PADDING=2, FORMAT_CHAR='-'):
+	headers = d.keys()
+	data = d.values()
+	print_as_table(table_headers=headers, data=data)
+
+def print_as_table(table_headers=[], data=[], PADDING=2, FORMAT_CHAR='-'):
+	column_lens = __get_max_col_widths(table_headers, data)
+	TABLE_LEN = (sum((column_lens[header] + PADDING + 1) 
+				for header in table_headers))
+
+	row_format = "|{:^{width}}"
+	# print line
+	print(FORMAT_CHAR * (TABLE_LEN + 1))
+
+	# Print column headers
+	for header in table_headers:
+		width = column_lens[header] + PADDING
+		print(row_format.format(header, width=width), end='')
+	print('|')
+	print(FORMAT_CHAR * (TABLE_LEN + 1))
+
+	# Print data
+	for row in data:
+		for tup, column_len in zip(row.values(), column_lens.values()):	
+			width = column_len + PADDING
+			print(row_format.format(tup, width=width), end='')
+		print("|")
 	
+def __get_max_col_widths(table_headers, data):
+	column_lens = {}
+	for header in table_headers:
+		max_data_len = max([len(str(item[header])) for item in data])
+		column_lens[header] = max(max_data_len, len(header))
+
+	for k, v in column_lens.items():
+		print(k, v)
+
+	return column_lens
+
