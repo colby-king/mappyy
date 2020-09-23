@@ -207,6 +207,25 @@ class MappyTable(TableDefinition):
 		self.__driver = driver
 
 
+	def get_import_csv(self, dest, required_only=True, include_index=False, *args):
+
+		if not required_only:
+			if len(args) > 0:
+				raise ValueError("Cannot specify additional columns if required_only is False")
+			headers = self.column_names
+		else:
+			headers = self.required_column_names
+			if args:
+				headers.append(args)
+
+		if not include_index:
+			headers.remove(self.primary_key.name)
+
+		write_csv(dest, headers, None)
+
+
+
+
 	def add(self, data_dict, commit=True, **data):
 		data_dict.update(data)
 		row = MappyRow(self, data_dict)
@@ -227,13 +246,22 @@ class MappyTable(TableDefinition):
 
 
 
-def read_csv(filename, read_blank_as=None, strip=True, remove_newlines=' '):
+def write_csv(filename, headers, data):
+	with open(filename, 'w', newline='') as csvfile:
+		writer = csv.DictWriter(csvfile, fieldnames=headers)
+		writer.writeheader()
+		if data:
+			for row in data:
+				writer.writerow(row)
+
+def read_csv(filename, read_empty_as_none=True, strip=True):
 	data = []
 	with open(filename) as f:
 		data_reader = csv.DictReader(f)
 		for row in data_reader:
-			d = {k: None if v == '' else v.strip().replace('\n', ' ') for k, v in row.items()}
-			data.append(dict(d))
+			if read_empty_as_none:
+				row = {k: read_blank_as if v == '' else v for k, v in row.items()}
+			data.append(dict(row))
 
 	return data
 

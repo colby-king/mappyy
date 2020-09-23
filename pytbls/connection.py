@@ -1,5 +1,5 @@
 import pyodbc
-
+from pytbls.tables import MappyTable
 
 class Driver(object):
 
@@ -55,9 +55,35 @@ class DBClient(object):
 		self.db_name = self.driver.read("SELECT DB_NAME();");
 
 
+	def get_table(self, tablename):
+
+		cursor = self.driver.cnxn.cursor()
+
+		table = cursor.tables(table=tablename).fetchone()
+		if not table:
+			raise ValueError('Table {} does not exist')
+
+		primary_keys = cursor.primaryKeys(tablename).fetchall()
+		pk_names = [pk.column_name for pk in primary_keys]
+		columns = cursor.columns(tablename)
+		table_def = []
+		for col in columns:
+			table_def.append({
+				'name': col.column_name,
+				'precision': col.column_size,
+				'scale': col.decimal_digits,
+				'is_nullable': bool(col.nullable),
+				'data_type': col.type_name,
+				'column_id': col.ordinal_position,
+				'max_length': col.buffer_length,
+				'is_primary_key': True if col.column_name in pk_names else False
+			})
+
+		return MappyTable(self.driver, table_def, tablename)
 
 
-	def query_table_def(self, tablename):
+
+	def __query_table_def(self, tablename):
 		"""Executres """
 		qry_column_info = """
 			  SELECT c.name,
