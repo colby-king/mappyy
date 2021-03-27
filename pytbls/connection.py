@@ -24,9 +24,14 @@ class Driver(object):
 		return data
 
 	def write(self, sql, *args, commit=True):
+
+		print(sql)
+		print(args)
+
 		cursor = self.cnxn.cursor()
 		cursor.execute(sql, *args)
 		last_id = cursor.execute('SELECT @@IDENTITY').fetchone()
+		print("Last ID:", last_id)
 		if commit:
 			self.commit()
 		return int(last_id[0])
@@ -55,38 +60,62 @@ class DBClient(object):
 		self.db_name = self.driver.read("SELECT DB_NAME();");
 
 
-	def get_table(self, tablename):
+	def get_table(self, tablename, schema=None):
+		"""returns a Mappy table object"""
 
-		cursor = self.driver.cnxn.cursor()
+		if schema:
+			tablename = '{}.{}'.format(tablename, schema)
+		# handle table not found
+		table_def = self.__query_table_def(tablename)
+		
+		for col in table_def:
+			print(col)
 
-		table = cursor.tables(table=tablename).fetchone()
-		if not table:
-			raise ValueError('Table {} does not exist')
+		return MappyTable(self.driver, table_def, tablename, schema)
 
-		primary_keys = cursor.primaryKeys(tablename).fetchall()
-		pk_names = [pk.column_name for pk in primary_keys]
-		columns = cursor.columns(tablename)
-		table_def = []
-		for col in columns:
-			table_def.append({
-				'name': col.column_name,
-				'precision': col.column_size,
-				'scale': col.decimal_digits,
-				'is_nullable': bool(col.nullable),
-				'data_type': col.type_name,
-				'column_id': col.ordinal_position,
-				'max_length': col.buffer_length,
-				'is_primary_key': True if col.column_name in pk_names else False
-			})
 
-		return MappyTable(self.driver, table_def, tablename)
+
+	# def get_table(self, tablename, schema=None):
+	# 	"""returns a Mappy table object"""
+
+	# 	cursor = self.driver.cnxn.cursor()
+
+	# 	table = cursor.tables(table=tablename).fetchone()
+	# 	if not table:
+	# 		raise ValueError("Table '{}' does not exist".format(tablename))
+
+	# 	primary_keys = cursor.primaryKeys(tablename, schema=schema).fetchall()
+
+	# 	pk_names = [pk.column_name for pk in primary_keys]
+	# 	print('Primary key names', pk_names)
+	# 	columns = cursor.columns(tablename)
+	# 	table_def = []
+	# 	for col in columns:
+	# 		print(col)
+	# 		table_def.append({
+	# 			'name': col.column_name,
+	# 			'precision': col.column_size,
+	# 			'scale': col.decimal_digits,
+	# 			'is_nullable': bool(col.nullable),
+	# 			'data_type': col.type_name,
+	# 			'column_id': col.ordinal_position,
+	# 			'max_length': col.buffer_length,
+	# 			'is_primary_key': True if col.column_name in pk_names else False
+	# 		})
+
+	# 	cols = cursor.foreignKeys(tablename).fetchall()
+	# 	print(cols)
+	# 	for col in cols:
+	# 		print(col)
+
+	# 	return MappyTable(self.driver, table_def, tablename, schema)
 
 
 
 	def __query_table_def(self, tablename):
 		"""Executres """
 		qry_column_info = """
-			  SELECT c.name,
+			SELECT c.name,
 			       c.max_length,
 			       c.precision,
 			       c.scale,
@@ -94,10 +123,13 @@ class DBClient(object):
 			       t.name [data_type],
 				   c.object_id,
 				   c.column_id,
-				   CASE WHEN ind.is_primary_key = 1 THEN 1 ELSE 0 END AS is_primary_key
+				   CASE WHEN ind.is_primary_key = 1 THEN 1 ELSE 0 END AS is_primary_key,
+	               c.is_identity,
+	               c.system_type_id,
+	               object_definition(c.default_object_id) [default_value]
 			  FROM sys.columns c
 			  JOIN sys.types   t
-			    ON c.user_type_id = t.user_type_id
+			    ON c.system_type_id = t.user_type_id
 			  CROSS APPLY (SELECT MAX(CASE WHEN ind.is_primary_key = 1 THEN 1 ELSE 0 END) AS is_primary_key FROM sys.index_columns ic
 						   LEFT JOIN sys.indexes ind on ind.object_id = ic.object_id AND ind.index_id = ic.index_id
 						   WHERE c.object_id = ic.object_id AND c.column_id = ic.column_id) AS ind

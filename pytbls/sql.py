@@ -1,12 +1,48 @@
 
 
 
+
+class SQLServerSystem(object):
+
+	@staticmethod
+	def get_column_info(table, schema=None):
+		"""Query uses SQL server sys columns to gather information about a tables columns"""
+
+		if schema:
+			table = '{}.{}'.format(table, schema)
+
+		sql = """
+			SELECT c.name,
+			       c.max_length,
+			       c.precision,
+			       c.scale,
+			       c.is_nullable,
+			       t.name [data_type],
+				   c.object_id,
+				   c.column_id,
+				   CASE WHEN ind.is_primary_key = 1 THEN 1 ELSE 0 END AS is_primary_key,
+	               c.is_identity,
+	               c.system_type_id
+			  FROM sys.columns c
+			  JOIN sys.types   t
+			    ON c.system_type_id = t.user_type_id
+			  CROSS APPLY (SELECT MAX(CASE WHEN ind.is_primary_key = 1 THEN 1 ELSE 0 END) AS is_primary_key FROM sys.index_columns ic
+						   LEFT JOIN sys.indexes ind on ind.object_id = ic.object_id AND ind.index_id = ic.index_id
+						   WHERE c.object_id = ic.object_id AND c.column_id = ic.column_id) AS ind
+			 WHERE c.object_id    = Object_id(?)
+		"""
+
+
+
 class SQLBuilder(object):
 
 	@staticmethod
-	def insert(tablename, columns):
+	def insert(tablename, columns, schema=None):
 		if not tablename or not columns:
 			raise ValueError('arguments must not be None or empty')
+
+		if schema:
+			tablename = "{}.{}".format(tablename, schema)
 
 		#Build SQL string
 		num_columns = len(columns)

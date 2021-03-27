@@ -3,14 +3,16 @@ from enum import Enum
 from abc import ABC
 import csv
 import pytbls.exceptions
-
+from pytbls.sql import SQLBuilder 
+from tabulate import tabulate 
 
 class TableDefinition(object):
 
-	def __init__(self, definition, tablename, *args, create_col_defs=True):
+	def __init__(self, definition, tablename, schema, *args, create_col_defs=True):
 		self._columns = {}
 		self._name = tablename
-		# Initial Column def objects if not provided 
+		self._schema = schema
+		# Initialize Column def objects if not provided 
 		if create_col_defs:
 			for col_def in definition:
 				try:
@@ -21,10 +23,27 @@ class TableDefinition(object):
 			self.columns = definition
 
 		# Set primary key
-		primary_key_col = [col for col in self.columns if col.is_pk]
-		if len(primary_key_col) > 1:
-			raise pytbls.exceptions.IllegalTableDefinitionError('Table cannot have more than 1 primary key')
-		self._primary_key = primary_key_col[0] if primary_key_col else None
+		pks = [col for col in self.columns if col.is_pk]
+		self._primary_key = pks
+
+		# Set identity column 
+		id_col = [col for col in self.columns if col.is_identity]
+		if id_col:
+			if len(primary_key_col) > 1:
+				raise pytbls.exceptions.IllegalTableDefinitionError('Table cannot have more than 1 identity column')
+			self._identity = id_col
+		else:
+			self._identity = None
+
+
+	@property
+	def schema(self):
+		return self._schema
+	
+	@property
+	def identity(self):
+		return self._identity
+	
 
 	@property
 	def name(self):
@@ -58,13 +77,85 @@ class TableDefinition(object):
 		return iter(self.columns)
 	
 
-		
+class MappyTable(TableDefinition):
+
+	def __init__(self, driver, tabledef, tablename, *args):
+		super().__init__(tabledef, tablename, *args, create_col_defs=True)
+		self.__driver = driver
+
+
+	def get_import_csv(self, dest, required_only=True, include_index=False, *args):
+
+		if not required_only:
+			if len(args) > 0:
+				raise ValueError("Cannot specify additional columns if required_only is False")
+			headers = self.column_names
+		else:
+			headers = self.required_column_names
+			if args:
+				headers.append(args)
+
+		if not include_index:
+			headers.remove(self.primary_key.name)
+
+		write_csv(dest, headers, None)
+
+
+	def add(self, data_dict, commit=True, **data):
+		data_dict.update(data)
+		insertable = self.__validate_insert(data_dict)
+		sql_insert = SQLBuilder.insert(self.name, insertable.keys(), schema=self.schema)
+		row_id = self.__driver.write(sql_insert, *insertable.values())
+		insertable[self.primary_key.name] = row_id
+		return insertable
+
+	def __validate_insert(self, data_dict, exact_match=False):
+		"""Checks that all columns required for insert are present.
+		   and returns a dict of insertable data (removes extra columns)
+		"""
+
+		for column in self.required_columns:
+			if column.name not in data_dict.keys() and not column.is_identity:
+				raise pytbls.exceptions.DataValidationError("Attribute '{}' is required and is None".format(column.name))
+
+		# Parse out columns that can be inserted 
+		if not exact_match:
+			insertable = {}
+			for col, val in data_dict.items():
+				if col in self.column_names: 
+					insertable[col] = val
+			return insertable
+
+		return data_dict
+
+
+	# Old function def that relied on MappyRow
+	# def add(self, data_dict, commit=True, **data):
+	# 	data_dict.update(data)
+	# 	row = MappyRow(self, data_dict)
+	# 	row_id = self.__driver.write(row.sql_insert, row.values)
+	# 	row.set_pk(row_id)
+	# 	return row
+
+	def test_data(self, data_dict, **data):
+		pass
+
+
+	def add_all(self, data_list, chunksize=None):
+		pass
+
+	def print_info(self):
+		data = [col.definition for col in self.columns]
+		headers = list(data[0].keys())
+		data = [col.values() for col in data]
+		print(tabulate(data, headers=headers))
+	
 
 class ColumnDefinition(object):
 
 	def __init__(self, definition, **kwargs):
 		definition.update(kwargs)
-		self.definition = definition
+		self._definition = definition
 		if type(definition) is dict or kwargs:
 			try:
 				self._name = definition.get('name') or kwargs.get('name')
@@ -74,10 +165,21 @@ class ColumnDefinition(object):
 				self._data_type = definition.get('type') or kwargs.get('type')
 				self._column_id = definition.get('column_id') or kwargs.get('column_id')
 				self._is_pk = definition.get('is_primary_key')
+				self._is_identity = definition.get('is_identity')
 			except KeyError as e:
 				raise ValueError('Required column attribute not set: {}'.format(e.args[0]))
 		else:
 			raise ValueError('Column attributes not provided to Column Definition object')
+
+	@property
+	def is_identity(self):
+		return self._is_identity
+	
+
+	@property
+	def definition(self):
+		return self._definition
+	
 
 	@property
 	def is_pk(self):
@@ -199,51 +301,6 @@ class MappyRow(object):
 
 	
 	
-
-class MappyTable(TableDefinition):
-
-	def __init__(self, driver, tabledef, tablename, *args):
-		super().__init__(tabledef, tablename, *args, create_col_defs=True)
-		self.__driver = driver
-
-
-	def get_import_csv(self, dest, required_only=True, include_index=False, *args):
-
-		if not required_only:
-			if len(args) > 0:
-				raise ValueError("Cannot specify additional columns if required_only is False")
-			headers = self.column_names
-		else:
-			headers = self.required_column_names
-			if args:
-				headers.append(args)
-
-		if not include_index:
-			headers.remove(self.primary_key.name)
-
-		write_csv(dest, headers, None)
-
-
-
-
-	def add(self, data_dict, commit=True, **data):
-		data_dict.update(data)
-		row = MappyRow(self, data_dict)
-		row_id = self.__driver.write(row.sql_insert, row.values)
-		row.set_pk(row_id)
-		return row
-
-	def test_data(self, data_dict, **data):
-		pass
-
-
-	def add_all(self, data_list, chunksize=None):
-		pass
-
-	def print_info(self):
-		for col in self:
-			print(col.name, "\t\t\t", col.required)
-
 
 
 def write_csv(filename, headers, data):
