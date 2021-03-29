@@ -23,18 +23,16 @@ class Driver(object):
 			return self._results_to_dict(data, cursor)
 		return data
 
-	def write(self, sql, *args, commit=True):
-
-		print(sql)
-		print(args)
-
+	def write(self, sql, *args, commit=True, identity=False):
+		"""Writes a record to the connection"""
+		
 		cursor = self.cnxn.cursor()
 		cursor.execute(sql, *args)
-		last_id = cursor.execute('SELECT @@IDENTITY').fetchone()
-		print("Last ID:", last_id)
 		if commit:
 			self.commit()
-		return int(last_id[0])
+		if identity:
+			last_id = cursor.execute('SELECT @@IDENTITY').fetchone()
+			return int(last_id[0])
 
 	def commit(self):
 		"""Commits a transaction on the current connection"""

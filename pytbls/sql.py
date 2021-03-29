@@ -37,12 +37,10 @@ class SQLServerSystem(object):
 class SQLBuilder(object):
 
 	@staticmethod
-	def insert(tablename, columns, schema=None):
+	def insert(tablename, columns):
 		if not tablename or not columns:
 			raise ValueError('arguments must not be None or empty')
 
-		if schema:
-			tablename = "{}.{}".format(tablename, schema)
 
 		#Build SQL string
 		num_columns = len(columns)

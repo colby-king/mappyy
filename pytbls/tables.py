@@ -104,9 +104,12 @@ class MappyTable(TableDefinition):
 	def add(self, data_dict, commit=True, **data):
 		data_dict.update(data)
 		insertable = self.__validate_insert(data_dict)
-		sql_insert = SQLBuilder.insert(self.name, insertable.keys(), schema=self.schema)
+		sql_insert = SQLBuilder.insert(self.name, insertable.keys())
 		row_id = self.__driver.write(sql_insert, *insertable.values())
-		insertable[self.primary_key.name] = row_id
+
+		if self.identity:
+			insertable[self.primary_key.name] = row_id
+			
 		return insertable
 
 	def __validate_insert(self, data_dict, exact_match=False):
@@ -115,8 +118,9 @@ class MappyTable(TableDefinition):
 		"""
 
 		for column in self.required_columns:
-			if column.name not in data_dict.keys() and not column.is_identity:
-				raise pytbls.exceptions.DataValidationError("Attribute '{}' is required and is None".format(column.name))
+			if column.name not in data_dict.keys():
+				if not column.is_identity and not column.default_value:
+					raise pytbls.exceptions.DataValidationError("Attribute '{}' is required and is None".format(column.name))
 
 		# Parse out columns that can be inserted 
 		if not exact_match:
@@ -166,6 +170,7 @@ class ColumnDefinition(object):
 				self._column_id = definition.get('column_id') or kwargs.get('column_id')
 				self._is_pk = definition.get('is_primary_key')
 				self._is_identity = definition.get('is_identity')
+				self._default_value = definition.get('default_value')
 			except KeyError as e:
 				raise ValueError('Required column attribute not set: {}'.format(e.args[0]))
 		else:
@@ -174,6 +179,11 @@ class ColumnDefinition(object):
 	@property
 	def is_identity(self):
 		return self._is_identity
+
+	@property
+	def default_value(self):
+		return self._default_value
+	
 	
 
 	@property

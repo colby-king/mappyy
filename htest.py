@@ -10,7 +10,7 @@ def main():
 	tblPerson = client.get_table('Person', schema='Person')
 
 	to_insert = {
-		'BusinessEntityID': 101010,
+		'BusinessEntityID': 1008,
 		'PersonType': 'EM',
 		'NameStyle': '0',
 		'Title': 'Mr.',
@@ -25,6 +25,7 @@ def main():
 
 	tblPerson.print_info()
 	rv = tblPerson.add(to_insert)
+	print(rv)
 
 	#tblPerson.print_info()
 	#print(definition)
