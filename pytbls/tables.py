@@ -43,6 +43,11 @@ class TableDefinition(object):
 	@property
 	def identity(self):
 		return self._identity
+
+	@property
+	def composite_key(self):
+		return len(self.primary_key) > 1
+	
 	
 
 	@property
@@ -58,6 +63,11 @@ class TableDefinition(object):
 	def column_names(self):
 		"""Returns a list of all column names"""
 		return [col.name for col in self.columns]
+
+	@property
+	def pk_column_names(self):
+		return [col.name for col in self.primary_key]
+	
 
 	@property
 	def required_columns(self):
@@ -100,6 +110,20 @@ class MappyTable(TableDefinition):
 
 		write_csv(dest, headers, None)
 
+	def update(self, update_dict, pk=None):
+		
+		composite_key = type(pk) == list 
+		self.__validate_update_by_pk(update_dict)
+		sql_update = SQLBuilder.update(self.name, update_dict.keys(), )
+
+
+	def __validate_update_by_pk(self, data_dict):
+		"""Checks that each PK col is present in the update_dict"""
+		for pk_col in self.pk_column_names:
+			if pk_col not in data_dict.keys():
+				raise pytbls.exceptions.DataValidationError("Primary key '{}' is required for update".format(pk_col))
+
+		return data_dict
 
 	def add(self, data_dict, commit=True, **data):
 		data_dict.update(data)
@@ -109,7 +133,7 @@ class MappyTable(TableDefinition):
 
 		if self.identity:
 			insertable[self.primary_key.name] = row_id
-			
+
 		return insertable
 
 	def __validate_insert(self, data_dict, exact_match=False):
