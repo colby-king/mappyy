@@ -5,6 +5,7 @@ import csv
 import pytbls.exceptions
 from pytbls.sql import SQLBuilder 
 from tabulate import tabulate 
+from collections import OrderedDict
 
 class TableDefinition(object):
 
@@ -29,9 +30,9 @@ class TableDefinition(object):
 		# Set identity column 
 		id_col = [col for col in self.columns if col.is_identity]
 		if id_col:
-			if len(primary_key_col) > 1:
+			if len(id_col) > 1:
 				raise pytbls.exceptions.IllegalTableDefinitionError('Table cannot have more than 1 identity column')
-			self._identity = id_col
+			self._identity = id_col[0]
 		else:
 			self._identity = None
 
@@ -113,27 +114,28 @@ class MappyTable(TableDefinition):
 	def update(self, update_dict, pk=None):
 		
 		composite_key = type(pk) == list 
-		update_cols, pks = self.__validate_update_by_pk(update_dict)
-		sql_update = SQLBuilder.update(self.name, update_cols, pks)
-		self.__driver.write(sql_update, *update_dict.values())
+		pks, update_cols = self.__validate_update_by_pk(update_dict)
+		sql_update = SQLBuilder.update_by_pk(self.name, list(update_cols.keys()), list(pks.keys()))
+		write_vals = (list(update_cols.values()) + list(pks.values()))
+		self.__driver.write(sql_update, *write_vals)
 
 
 	def __validate_update_by_pk(self, data_dict):
 		"""Checks that each PK col is present in the update_dict"""
 
-		pk_cols = []
+		pk_cols = OrderedDict()
 		for pk_col in self.pk_column_names:
 			if pk_col not in data_dict.keys():
 				raise pytbls.exceptions.DataValidationError("Primary key '{}' is required for update".format(pk_col))
-			pk_cols.append(pk_col)
+			pk_cols[pk_col] = data_dict[pk_col]
 
-		update_cols = []
+		update_cols = OrderedDict()
 		for key, val in data_dict.items():
 			if key not in self.column_names:
 				raise pytbls.exceptions.DataValidationError("Attribute '{}' doesn't exist on {} and cannot be updated".format(self.name, key))
 			
 			if key not in self.pk_column_names:
-				update_cols.append(key)
+				update_cols[key] = data_dict[key]
 
 		if len(update_cols) > 0:
 			return (pk_cols, update_cols)

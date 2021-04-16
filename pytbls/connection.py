@@ -25,6 +25,9 @@ class Driver(object):
 
 	def write(self, sql, *args, commit=True, identity=False):
 		"""Writes a record to the connection"""
+
+		print(sql)
+		print(args)
 		
 		cursor = self.cnxn.cursor()
 		cursor.execute(sql, *args)

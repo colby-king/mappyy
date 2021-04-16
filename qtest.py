@@ -3,9 +3,9 @@ from pytbls.tables import *
 import datetime
 
 TMS_DEV_CONNECT = (
-	r'Driver={SQL Server};'
-	r'Server=WINESSSSDEV11;'
-	r'Database=tmsenterprise;'
+	r'Driver={ODBC Driver 17 for SQL Server};'
+	r'Server=swtms0db5001;'
+	r'Database=tmsenterprise_TST;'
 	r'Trusted_Connection=yes;'
 	r'MARS_Connection=Yes;'
 )
