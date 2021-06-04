@@ -1,5 +1,7 @@
 import pyodbc
 from pytbls.tables import MappyTable
+#from pytbls.io import *
+import csv
 
 class Driver(object):
 
@@ -25,9 +27,6 @@ class Driver(object):
 
 	def write(self, sql, *args, commit=True, identity=False):
 		"""Writes a record to the connection"""
-
-		print(sql)
-		print(args)
 		
 		cursor = self.cnxn.cursor()
 		cursor.execute(sql, *args)
@@ -59,6 +58,21 @@ class DBClient(object):
 
 	def __set_db_name(self):
 		self.db_name = self.driver.read("SELECT DB_NAME();");
+
+
+	def query(self, sql, *args):
+		"""Executes a query on the current connection"""
+
+		return self.driver.read(sql, *args, to_dict=True)
+
+	def write_csv(self, filename, data):
+		fieldnames = data[0].keys()
+
+		with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+			dw = csv.DictWriter(csvfile, fieldnames=fieldnames)
+			dw.writeheader()
+			dw.writerows(data)
+
 
 
 	def get_table(self, tablename, schema=None):
