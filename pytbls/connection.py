@@ -36,6 +36,14 @@ class Driver(object):
 			last_id = cursor.execute('SELECT @@IDENTITY').fetchone()
 			return int(last_id[0])
 
+	def execute(self, sql, *args, commit=True):
+		"""Executes an SQL statement on the current connection"""
+		cursor = self.cnxn.cursor()
+		cursor.execute(sql, *args)
+		if commit:
+			self.commit()
+
+
 	def commit(self):
 		"""Commits a transaction on the current connection"""
 		self.cnxn.commit()

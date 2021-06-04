@@ -58,5 +58,24 @@ tbl_address.add({
 
 
 
-## Support 
+## Future development 
+
+### Join operation on data in memory 
+
+```python
+
+my_data = [
+	{'ID': 1, 'col1': 'data', 'col2': 'data', 'col3': 'data'}
+	{'ID': 2, 'col1': 'data', 'col2': 'data', 'col3': 'data'}
+	{'ID': 3, 'col1': 'data', 'col2': 'data', 'col3': 'data'}
+]
+
+client.join('sampleTable', my_data, on='ID')
+
+// or.... 
+
+sampleTable = client.get_table('SampleTable')
+sampleTable.join(my_data, on='ID', table_col='ID') # table_col will be an optional arg 
+
+
 

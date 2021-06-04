@@ -1,5 +1,4 @@
-
-
+import pytbls.exceptions
 
 
 class SQLServerSystem(object):
@@ -36,11 +35,21 @@ class SQLServerSystem(object):
 
 class SQLBuilder(object):
 
+
+
+	@staticmethod
+	def create_table(tablename, columns, data):
+		pass
+
+	@staticmethod
+	def get_sql_type(t):
+		try:
+			return __PY_TO_SQLTYPES[t]
+		except KeyError:
+			raise pytbls.exceptions.TypeNotSupportedError("type not supported")
+
 	@staticmethod
 	def insert(tablename, columns):
-		if not tablename or not columns:
-			raise ValueError('arguments must not be None or empty')
-
 
 		#Build SQL string
 		num_columns = len(columns)
@@ -77,3 +86,17 @@ class SQLBuilder(object):
 		else:
 			sql += ' WHERE {} = ?'.format(pk)
 		return sql
+
+
+__PY_TO_SQLTYPES = {
+	
+	None: 'NULL',
+	bool: 'BIT',
+	int: 'INTEGER',
+	float: 'DOUBLE PRECISION',
+	str: 'VARCHAR(MAX)',
+	datetime.date: 'DATE',
+	datetime.time: 'TIME',
+	datetime.datetime: 'TIMESTAMP',
+	uuid.UUID: 'GUID'
+}

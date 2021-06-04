@@ -5,3 +5,6 @@ class DataValidationError(Exception):
 
 class IllegalTableDefinitionError(Exception):
 	pass
+
+class TypeNotSupportedError(Exception):
+	pass

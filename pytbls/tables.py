@@ -153,6 +153,25 @@ class MappyTable(TableDefinition):
 
 		return insertable
 
+
+	def join(self, data_list, on=None, table_col=None):
+		"""Joins a data dictionary with a table"""
+
+		if not on:
+			raise TypeError("missing 1 required positional argument: 'on'")
+
+		if not table_col:
+			table_col = on
+
+
+		return None
+
+
+
+
+
+
+
 	def __validate_insert(self, data_dict, exact_match=False):
 		"""Checks that all columns required for insert are present.
 		   and returns a dict of insertable data (removes extra columns)
@@ -173,14 +192,6 @@ class MappyTable(TableDefinition):
 
 		return data_dict
 
-
-	# Old function def that relied on MappyRow
-	# def add(self, data_dict, commit=True, **data):
-	# 	data_dict.update(data)
-	# 	row = MappyRow(self, data_dict)
-	# 	row_id = self.__driver.write(row.sql_insert, row.values)
-	# 	row.set_pk(row_id)
-	# 	return row
 
 	def test_data(self, data_dict, **data):
 		pass
