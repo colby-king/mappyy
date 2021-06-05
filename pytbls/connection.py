@@ -27,7 +27,7 @@ class Driver(object):
 
 	def write(self, sql, *args, commit=True, identity=False):
 		"""Writes a record to the connection"""
-		
+
 		cursor = self.cnxn.cursor()
 		cursor.execute(sql, *args)
 		if commit:
@@ -136,7 +136,42 @@ class DBClient(object):
 
 
 	def __query_table_def(self, tablename):
-		"""Executres """
+		"""Executes a query to get info about the columns. 
+
+		   TODO: This can be re-written to only use the cursor object... 
+		   		 identity columns are type 'int identity'
+		   		 primary keys can be retrieved through the primaryKeys() method
+		   		 alias types can be looked up using the type codes provided by pyodbc.columns()
+		   		 This should be all of them.... 
+		   		     	MAKECONST(SQL_WMETADATA),
+					    MAKECONST(SQL_UNKNOWN_TYPE),
+					    MAKECONST(SQL_CHAR),
+					    MAKECONST(SQL_VARCHAR),
+					    MAKECONST(SQL_LONGVARCHAR),
+					    MAKECONST(SQL_WCHAR),
+					    MAKECONST(SQL_WVARCHAR),
+					    MAKECONST(SQL_WLONGVARCHAR),
+					    MAKECONST(SQL_DECIMAL),
+					    MAKECONST(SQL_NUMERIC),
+					    MAKECONST(SQL_SMALLINT),
+					    MAKECONST(SQL_INTEGER),
+					    MAKECONST(SQL_REAL),
+					    MAKECONST(SQL_FLOAT),
+					    MAKECONST(SQL_DOUBLE),
+					    MAKECONST(SQL_BIT),
+					    MAKECONST(SQL_TINYINT),
+					    MAKECONST(SQL_BIGINT),
+					    MAKECONST(SQL_BINARY),
+					    MAKECONST(SQL_VARBINARY),
+					    MAKECONST(SQL_LONGVARBINARY),
+					    MAKECONST(SQL_TYPE_DATE),
+					    MAKECONST(SQL_TYPE_TIME),
+					    MAKECONST(SQL_TYPE_TIMESTAMP),
+					    MAKECONST(SQL_SS_TIME2),
+					    MAKECONST(SQL_SS_XML),
+
+				Also see: https://github.com/mkleehammer/pyodbc/wiki/Data-Types
+		"""
 		qry_column_info = """
 			SELECT c.name,
 			       c.max_length,

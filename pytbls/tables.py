@@ -3,7 +3,7 @@ from enum import Enum
 from abc import ABC
 import csv
 import pytbls.exceptions
-from pytbls.sql import SQLBuilder 
+from pytbls.sql import * 
 from tabulate import tabulate 
 from collections import OrderedDict
 
@@ -154,8 +154,20 @@ class MappyTable(TableDefinition):
 		return insertable
 
 
-	def join(self, data_list, on=None, table_col=None):
-		"""Joins a data dictionary with a table"""
+	def join(self, data_list, on=None, table_col=None, join_type='INNER'):
+		"""
+		Joins a data list--a list of dictionaries--with a table in the 
+		database. 
+		
+		Arguments
+		param data_list: list of dictionaries, like a table 
+		param on: the name of the column in the data list you want to join on
+		param table_col: name of the column in the table you want to join the 
+					     data_list on. If none, it's defaul will be set to on.
+	    param: join_type: specifies the type of join operation you want to perform
+
+	    return: new data_list with joined data 
+		"""
 
 		if not on:
 			raise TypeError("missing 1 required positional argument: 'on'")
@@ -163,10 +175,22 @@ class MappyTable(TableDefinition):
 		if not table_col:
 			table_col = on
 
+		columns = get_dl_columns(data_list)
+
+		#get_data_list_types()
+		#get_data_list_cols()
 
 		return None
 
 
+	def __validate_cols(self, data_dict):
+
+		for column in self.required_columns:
+			if column.name not in data_dict.keys():
+				if not column.is_identity and not column.default_value:
+					raise pytbls.exceptions.DataValidationError(
+						"Attribute '{}' is required and is None".format(column.name)
+					)
 
 
 
@@ -361,7 +385,35 @@ class MappyRow(object):
 		"""
 		return self.data_row.__repr__()
 
+
+
+
+
+
+
+########### data list functions ###############
+
+
+def get_dl_columns(data_row):
+	"""
+	returns a list of tuples containing the corresponding SQL type and column name
 	
+	Arguments
+	param data_row: a dictionary that represents a row of data
+	return: list of tuples containing the dict entry's key and corresponding 
+		    SQL data type
+	"""
+	columns = []
+	for tup, key in data_row.items():
+		try:
+			columns.add((
+				key,
+				__PY_TO_SQLTYPES[type(tup)]
+			))
+		except KeyError:
+			raise pytbls.exceptions.TypeNotSupportedError("type {} not supported by mappy".format(type(tup)))
+
+	return columns
 	
 
 

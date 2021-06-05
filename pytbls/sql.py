@@ -38,16 +38,21 @@ class SQLBuilder(object):
 
 
 	@staticmethod
-	def create_table(tablename, columns, data):
-		pass
+	def create_tmp_table(tablename, column_list):
+		"""
+		returns sql that creates a temporary table given a list 
+		of tuples of column names and data types 
+		"""
+		
+		sql = 'CREATE TABLE #Temporary (\n'
+		for col in column_list:
+			if col != column_list[-1]:
+				sql += '{} {},\n'.format(*col)
+			else:
+				sql += '{} {}\n)'.format(*col)
+		return sql
 
-	@staticmethod
-	def get_sql_type(t):
-		try:
-			return __PY_TO_SQLTYPES[t]
-		except KeyError:
-			raise pytbls.exceptions.TypeNotSupportedError("type not supported")
-
+		
 	@staticmethod
 	def insert(tablename, columns):
 
