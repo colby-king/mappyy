@@ -35,6 +35,9 @@ class SQLServerSystem(object):
 
 class SQLBuilder(object):
 
+	# Note avoid sql inject, validate table names. 
+	# Also need to a way to validate column names when creating tmp tables 
+	
 
 
 	@staticmethod
@@ -43,7 +46,7 @@ class SQLBuilder(object):
 		returns sql that creates a temporary table given a list 
 		of tuples of column names and data types 
 		"""
-		
+
 		sql = 'CREATE TABLE #Temporary (\n'
 		for col in column_list:
 			if col != column_list[-1]:

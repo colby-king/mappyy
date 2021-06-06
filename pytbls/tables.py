@@ -176,6 +176,20 @@ class MappyTable(TableDefinition):
 			table_col = on
 
 		columns = get_dl_columns(data_list)
+		sql_create_table = SQLBuilder.create_tmp_table(columns)
+		self.__driver.write(sql_create_table, commit=True)
+
+		col_names = [col[0] for col in columns]
+		#
+		for row in data_list.items():
+			sql_insert = SQLBuilder.insert('#Temporary', col_names)
+			self.__driver.write(sql_insert, *row.values())
+
+		self.__driver.commit()
+
+		
+
+
 
 		#get_data_list_types()
 		#get_data_list_cols()
