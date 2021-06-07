@@ -91,8 +91,7 @@ class DBClient(object):
 		# handle table not found
 		table_def = self.__query_table_def(tablename)
 		
-		for col in table_def:
-			print(col)
+
 
 		return MappyTable(self.driver, table_def, tablename, schema)
 

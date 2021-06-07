@@ -14,33 +14,42 @@ def main():
 
 	client = DBClient(TMS_DEV_CONNECT)
 
-	definition = client.query_table_def('tblLocationCodes')
+	# loc_data = {
+	# "IDSegment": 10,
+	# "IDSite": 9,
+	# "IDBuilding": 177,
+	# "Code": "rddizdd",
+	# "Description": "Location",
+	# "Show": 1,
+	# "IDAccount":None,
+	# "ShowInQuery": 1,
+	# "IDSpace": None,
+	# "IsMeterLocation": 0,
+	# "TagNumber": None,
+	# "DateCreated":datetime.datetime.now(),
+	# "DateUpdated": datetime.datetime.now()
+	# }
 
-	#print(definition)
 
-	#tblLocationCodes_def = TableDefinition(definition, 'tblLocationCodes')
+	# table = client.get_table('tblLocationCodes')
+	# new_row = table.add(loc_data)
+	# print(new_row)
 
-	loc_data = {
-	"IDSegment": 4,
-	"IDSite": 9,
-	"IDBuilding": 177,
-	"Code": "rddizdd",
-	"Description": "Location",
-	"Show": 1,
-	"IDAccount":None,
-	"ShowInQuery": 1,
-	"IDSpace": None,
-	"IsMeterLocation": 0,
-	"TagNumber": None,
-	"DateCreated":datetime.datetime.now(),
-	"DateUpdated": datetime.datetime.now()
-	}
+	test_data = [
+		{'ID': 1005901064, 'col1': 'data', 'col2': 3},
+		{'ID': 1005901063, 'col1': 'data', 'col2': 3},
+		{'ID': 1005901062, 'col1': 'data', 'col2': 3},
+		{'ID': 1005901061, 'col1': 'data', 'col2': 3},
+		{'ID': 1005901060, 'col1': 'data', 'col2': 3},
+		{'ID': 1005901059, 'col1': 'data', 'col2': 3},
+		{'ID': 1005901058, 'col1': 'data', 'col2': 3},
+		{'ID': 1005901057, 'col1': 'data', 'col2': 3},
+		{'ID': 1005901056, 'col1': 'data', 'col2': 3},
+		{'ID': 1005901055, 'col1': 'data', 'col2': 3}
+	]
 
-	#mr = MappyRow(tblLocationCodes_def, loc_data)
-	#print(mr.sql_insert)
+	tblWorkOrders = client.get_table('tblWorkOrders')
 
-	tbl = MappyTable(client.driver, definition, 'tblLocationCodes')
-	new_row = tbl.add(loc_data)
-	print(new_row.data_row)
+	tblWorkOrders.join(test_data, on='ID', table_col='IDWorkOrder')
 
 main()

@@ -4,6 +4,7 @@ from abc import ABC
 import csv
 import pytbls.exceptions
 from pytbls.sql import * 
+from pytbls.sql import __PY_TO_SQLTYPES
 from tabulate import tabulate 
 from collections import OrderedDict
 
@@ -146,10 +147,12 @@ class MappyTable(TableDefinition):
 		data_dict.update(data)
 		insertable = self.__validate_insert(data_dict)
 		sql_insert = SQLBuilder.insert(self.name, insertable.keys())
-		row_id = self.__driver.write(sql_insert, *insertable.values())
+		row_id = self.__driver.write(sql_insert, *insertable.values(), identity=True)
 
+		print('ROW ID: {}'.format(row_id))
 		if self.identity:
-			insertable[self.primary_key.name] = row_id
+			print(insertable)
+			insertable[self.identity.name] = row_id
 
 		return insertable
 
@@ -175,20 +178,27 @@ class MappyTable(TableDefinition):
 		if not table_col:
 			table_col = on
 
-		columns = get_dl_columns(data_list)
+		# try to get data types from first item and hope the list is consistent
+		# Add checks to validate table later 
+		columns = get_dl_columns(data_list[0])
+		print(columns)
 		sql_create_table = SQLBuilder.create_tmp_table(columns)
+		print(sql_create_table)
 		self.__driver.write(sql_create_table, commit=True)
 
 		col_names = [col[0] for col in columns]
 		#
-		for row in data_list.items():
+		for row in data_list:
 			sql_insert = SQLBuilder.insert('#Temporary', col_names)
 			self.__driver.write(sql_insert, *row.values())
 
 		self.__driver.commit()
 
-		
+		data = self.__driver.read("""select #Temporary.*, tblWorkOrders.WONumber from #Temporary {} JOIN {} ON #Temporary.{} = {}.{}""".format(join_type, self.name, on, self.name, table_col), to_dict=True)
 
+		
+		for item in data:
+			print(item)
 
 
 		#get_data_list_types()
@@ -418,9 +428,9 @@ def get_dl_columns(data_row):
 		    SQL data type
 	"""
 	columns = []
-	for tup, key in data_row.items():
+	for key, tup in data_row.items():
 		try:
-			columns.add((
+			columns.append((
 				key,
 				__PY_TO_SQLTYPES[type(tup)]
 			))

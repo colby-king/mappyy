@@ -1,4 +1,6 @@
 import pytbls.exceptions
+import datetime
+import uuid
 
 
 class SQLServerSystem(object):
@@ -36,12 +38,21 @@ class SQLServerSystem(object):
 class SQLBuilder(object):
 
 	# Note avoid sql inject, validate table names. 
-	# Also need to a way to validate column names when creating tmp tables 
-	
+	# Also need to a way to validate column names when creating tmp tables
 
 
 	@staticmethod
-	def create_tmp_table(tablename, column_list):
+	def build_query(select_list=[], table, table_joins=[])
+		
+		sl_len = len(select_list)
+		sql = ('SELECT' + '{},' * (sl_len - 1) + '{}').format(*select_list)
+		sql += 'FROM {}'.format(table)
+		for join in table_joins:
+			sql += 'JOIN'
+
+
+	@staticmethod
+	def create_tmp_table(column_list):
 		"""
 		returns sql that creates a temporary table given a list 
 		of tuples of column names and data types 
