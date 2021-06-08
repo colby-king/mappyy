@@ -42,7 +42,7 @@ class SQLBuilder(object):
 
 
 	@staticmethod
-	def build_query(select_list=[], table, table_joins=[])
+	def build_query(table, select_list=[], table_joins=[]):
 		
 		sl_len = len(select_list)
 		sql = ('SELECT' + '{},' * (sl_len - 1) + '{}').format(*select_list)

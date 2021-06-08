@@ -157,7 +157,7 @@ class MappyTable(TableDefinition):
 		return insertable
 
 
-	def join(self, data_list, on=None, table_col=None, join_type='INNER'):
+	def join(self, data_list, select=None, on=(), join_type='INNER'):
 		"""
 		Joins a data list--a list of dictionaries--with a table in the 
 		database. 
@@ -172,11 +172,14 @@ class MappyTable(TableDefinition):
 	    return: new data_list with joined data 
 		"""
 
-		if not on:
-			raise TypeError("missing 1 required positional argument: 'on'")
+		if not select:
+			select = ['*']
 
-		if not table_col:
-			table_col = on
+		if not on:
+			raise TypeError("specify column in datalist and table to join: on=(dl_col, tbl_col)")
+
+		dl_col, table_col = on
+
 
 		# try to get data types from first item and hope the list is consistent
 		# Add checks to validate table later 
@@ -418,6 +421,20 @@ class MappyRow(object):
 ########### data list functions ###############
 
 
+def validate_dl(data_list):
+	"""Validates that data lists are in a tabular format"""
+	try:
+		cols = data_list[0].keys()
+	except KeyError:
+		raise ValueError('data list must contain a list of at least one dictionary to be considered valid')
+
+	for i, row in enumerate(data_list):
+		if row.keys() != cols:
+			raise ValueError('dictionary at position {} has a unique set of keys.'.format(i))
+
+
+
+
 def get_dl_columns(data_row):
 	"""
 	returns a list of tuples containing the corresponding SQL type and column name
@@ -439,6 +456,33 @@ def get_dl_columns(data_row):
 
 	return columns
 	
+
+
+def convert_dl_col_type(data_list, col_name, py_type, col_index=None):
+
+	import ast
+	from dateutil import parser
+
+	eval_functions  = {
+		int: int,
+		str: str,
+		float: float,
+		bool: bool,
+		datetime.datetime: parser.parse
+	}
+
+	if py_type not in eval_functions.keys():
+		raise TypeError('cannot convert column {} to type {}. Type not supported'.format(col_name, str(py_type)))
+
+
+	for i, row in enumerate(data_list):
+		convert_type = eval_functions[py_type]
+		try:
+			row[col_name] = convert_type(row[col_name])
+		except ValueError as e:
+			raise ValueError('Unable to convert to type {} at column {} at row {}'.format(str(py_type), col_name, str(i)))
+
+
 
 
 def write_csv(filename, headers, data):
