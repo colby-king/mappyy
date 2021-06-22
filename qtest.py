@@ -50,6 +50,10 @@ def main():
 
 	tblWorkOrders = client.get_table('tblWorkOrders')
 
-	tblWorkOrders.join(test_data, on='ID', table_col='IDWorkOrder')
+	tblWorkOrders.join(
+		test_data, 
+		select=['IDWorkOrder', 'WONumber', 'DateCreated'], 
+		on=('ID', 'IDWorkOrder')
+	)
 
 main()

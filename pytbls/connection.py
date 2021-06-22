@@ -1,6 +1,6 @@
 import pyodbc
-from pytbls.tables import MappyTable
-#from pytbls.io import *
+#from pytbls.tables import MappyTable
+from pytbls.tables import *
 import csv
 
 class Driver(object):
@@ -29,7 +29,14 @@ class Driver(object):
 		"""Writes a record to the connection"""
 
 		cursor = self.cnxn.cursor()
-		cursor.execute(sql, *args)
+
+		try:
+			cursor.execute(sql, *args)
+		except pyodbc.ProgrammingError as e:
+			print(sql)
+			print(*args)
+			raise 
+
 		if commit:
 			self.commit()
 		if identity:
@@ -42,6 +49,27 @@ class Driver(object):
 		cursor.execute(sql, *args)
 		if commit:
 			self.commit()
+
+	def executemany(self, sql, data_list, fast=False):
+		"""Executes the sql for every item in the data_list """
+
+		# Peek to see if data_list needs converted 
+		if type(data_list[0]) not in (list, tuple, pyodbc.Row):
+			data_list = [tuple(d.values()) for d in data_list]
+
+		cursor = self.cnxn.cursor()
+
+		if fast:
+			cursor.fast_executemany = True
+
+		try:
+			cursor.executemany(sql, data_list)
+		except pyodbc.ProgrammingError as e:
+			self.rollback()
+			raise e
+		else:
+			self.commit()
+
 
 
 	def commit(self):

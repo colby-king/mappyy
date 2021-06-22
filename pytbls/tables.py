@@ -186,28 +186,33 @@ class MappyTable(TableDefinition):
 		columns = get_dl_columns(data_list[0])
 		print(columns)
 		sql_create_table = SQLBuilder.create_tmp_table(columns)
-		print(sql_create_table)
+
+		# Create the temporary table
 		self.__driver.write(sql_create_table, commit=True)
 
+
 		col_names = [col[0] for col in columns]
-		#
-		for row in data_list:
-			sql_insert = SQLBuilder.insert('#Temporary', col_names)
-			self.__driver.write(sql_insert, *row.values())
+		sql_insert = SQLBuilder.insert('#Temporary', col_names)
+
+		
+		self.__driver.executemany(sql_insert, data_list, fast=True)
+
+
+		# for row in data_list:
+		# 	sql_insert = SQLBuilder.insert('#Temporary', col_names)
+		# 	self.__driver.write(sql_insert, *row.values())
 
 		self.__driver.commit()
 
-		data = self.__driver.read("""select #Temporary.*, tblWorkOrders.WONumber from #Temporary {} JOIN {} ON #Temporary.{} = {}.{}""".format(join_type, self.name, on, self.name, table_col), to_dict=True)
+		query = SQLBuilder.build_query(
+			'#Temporary',
+			select_list=['*'],
+			table_joins=[('tblResources', 'PagerEmail', 'PagerEmail')]
+		)
 
-		
-		for item in data:
-			print(item)
+		data = self.__driver.read(query, to_dict=True)
 
-
-		#get_data_list_types()
-		#get_data_list_cols()
-
-		return None
+		return data
 
 
 	def __validate_cols(self, data_dict):
@@ -420,6 +425,12 @@ class MappyRow(object):
 
 ########### data list functions ###############
 
+def get_dl_as_tuples(data_list):
+	""" Takes a list of dictories and returns a list of tuples holding the dicts values"""
+
+	return [tup(d.values()) for d in data_list]
+
+
 
 def validate_dl(data_list):
 	"""Validates that data lists are in a tabular format"""
@@ -458,7 +469,7 @@ def get_dl_columns(data_row):
 	
 
 
-def convert_dl_col_type(data_list, col_name, py_type, col_index=None):
+def convert_dl_col_type(data_list, col_name, py_type, col_index=None, default_on_fail=False, default=None):
 
 	import ast
 	from dateutil import parser
@@ -480,7 +491,10 @@ def convert_dl_col_type(data_list, col_name, py_type, col_index=None):
 		try:
 			row[col_name] = convert_type(row[col_name])
 		except ValueError as e:
-			raise ValueError('Unable to convert to type {} at column {} at row {}'.format(str(py_type), col_name, str(i)))
+			if use_default_on_fail:
+				row[col_name] = default
+			else:
+				raise ValueError('Unable to convert to type {} at column {} at row {}'.format(str(py_type), col_name, str(i)))
 
 
 

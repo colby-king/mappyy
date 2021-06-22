@@ -42,5 +42,18 @@ class TestSQLBuilder:
 		print(actual)
 		assert expected == actual
 
+	def test_build_query(self, tablename):
+		fields = ['field1', 'field2', 'field3']
+		actual = SQLBuilder.build_query(
+			'#temporary', 
+			select_list=fields,
+			table_joins=[('SampleTable', 'IDSample', 'IDTemp')]
+		)
+		expected = """SELECT [{}], [{}], [{}] FROM #temporary JOIN SampleTable ON SampleTable.IDSample = #temporary.IDTemp""".format(*fields)
+
+		assert actual == expected
+
+
+
 		
 

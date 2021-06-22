@@ -43,12 +43,13 @@ class SQLBuilder(object):
 
 	@staticmethod
 	def build_query(table, select_list=[], table_joins=[]):
-		
 		sl_len = len(select_list)
-		sql = ('SELECT' + '{},' * (sl_len - 1) + '{}').format(*select_list)
-		sql += 'FROM {}'.format(table)
+		sql = ('SELECT ' + '{}, ' * (sl_len - 1) + '{} ').format(*select_list)
+		sql += 'FROM {} '.format(table)
 		for join in table_joins:
-			sql += 'JOIN'
+			sql += 'LEFT JOIN {} ON {}.{} = {}.{}'.format(join[0], join[0], join[1], table, join[2])
+
+		return sql
 
 
 	@staticmethod
@@ -61,9 +62,9 @@ class SQLBuilder(object):
 		sql = 'CREATE TABLE #Temporary (\n'
 		for col in column_list:
 			if col != column_list[-1]:
-				sql += '{} {},\n'.format(*col)
+				sql += '[{}] {},\n'.format(*col)
 			else:
-				sql += '{} {}\n)'.format(*col)
+				sql += '[{}] {}\n)'.format(*col)
 		return sql
 
 		
@@ -73,7 +74,7 @@ class SQLBuilder(object):
 		#Build SQL string
 		num_columns = len(columns)
 		sql = 'INSERT INTO {} ('.format(tablename)
-		sql += ('{}, ' * (num_columns - 1) + '{})\n').format(*columns)
+		sql += ('[{}], ' * (num_columns - 1) + '[{}])\n').format(*columns)
 		sql += 'VALUES ('
 		sql += ('?, ' * (num_columns - 1) + '?)')
 		return sql
