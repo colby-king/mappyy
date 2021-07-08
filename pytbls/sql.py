@@ -37,7 +37,7 @@ class SQLServerSystem(object):
 
 class SQLBuilder(object):
 
-	# Note avoid sql inject, validate table names. 
+	# Note avoid sql injection, validate table names. 
 	# Also need to a way to validate column names when creating tmp tables
 
 
@@ -47,7 +47,7 @@ class SQLBuilder(object):
 		sql = ('SELECT ' + '{}, ' * (sl_len - 1) + '{} ').format(*select_list)
 		sql += 'FROM {} '.format(table)
 		for join in table_joins:
-			sql += 'LEFT JOIN {} ON {}.{} = {}.{}'.format(join[0], join[0], join[1], table, join[2])
+			sql += '{} JOIN {} ON {}.{} = {}.{}'.format(join[3], join[0], join[0], join[1], table, join[2])
 
 		return sql
 

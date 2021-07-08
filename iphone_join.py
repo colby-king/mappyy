@@ -26,8 +26,9 @@ def main():
 
 	new_data = tblResources.join(
 		data, 
-		select=['IDResource', 'IDSegment', 'ResourceNumber'], 
-		on=('PagerEmail', 'PagerEmail')
+		select=['UserField9', 'UserField8', 'UserField7', 'IDResource', 'IDSegment', 'ResourceNumber', 'PagerEmail', 'IDStatus'], 
+		on=('PagerEmail', 'PagerEmail'),
+		join_type='LEFT'
 	)
 
 	write_csv('joined_iphones.csv', list(new_data[0].keys()), new_data)

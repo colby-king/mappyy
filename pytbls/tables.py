@@ -157,6 +157,11 @@ class MappyTable(TableDefinition):
 		return insertable
 
 
+	def add_all(self, data_list):
+		pass
+		
+
+
 	def join(self, data_list, select=None, on=(), join_type='INNER'):
 		"""
 		Joins a data list--a list of dictionaries--with a table in the 
@@ -172,42 +177,46 @@ class MappyTable(TableDefinition):
 	    return: new data_list with joined data 
 		"""
 
+		select_list = []
 		if not select:
-			select = ['*']
+			# select all fields in provided data and in DB Table if not specified
+			select_list = ['*']
+		else:
+			# verify all fields in the select list are in this table
+			for col in select:
+				if col not in self.column_names:
+					raise pytbls.expections.DataValidationError("{} is an invalid column name for table {}".format(col, self.name))
+				full_colname = '{}.{}'.format(self.name, col)
+				select_list.append(full_colname)
+
+			# select dl columns too
+			select_list = ['#Temporary.*'] + select_list
 
 		if not on:
 			raise TypeError("specify column in datalist and table to join: on=(dl_col, tbl_col)")
-
-		dl_col, table_col = on
 
 
 		# try to get data types from first item and hope the list is consistent
 		# Add checks to validate table later 
 		columns = get_dl_columns(data_list[0])
-		print(columns)
 		sql_create_table = SQLBuilder.create_tmp_table(columns)
 
 		# Create the temporary table
 		self.__driver.write(sql_create_table, commit=True)
 
-
+		# Insert dl list into tmp DB table
 		col_names = [col[0] for col in columns]
 		sql_insert = SQLBuilder.insert('#Temporary', col_names)
-
-		
 		self.__driver.executemany(sql_insert, data_list, fast=True)
-
-
-		# for row in data_list:
-		# 	sql_insert = SQLBuilder.insert('#Temporary', col_names)
-		# 	self.__driver.write(sql_insert, *row.values())
-
 		self.__driver.commit()
+
+
+		dl_col, table_col = on
 
 		query = SQLBuilder.build_query(
 			'#Temporary',
-			select_list=['*'],
-			table_joins=[('tblResources', 'PagerEmail', 'PagerEmail')]
+			select_list=select_list,
+			table_joins=[(self.name, dl_col, table_col, join_type)]
 		)
 
 		data = self.__driver.read(query, to_dict=True)
@@ -517,44 +526,4 @@ def read_csv(filename, read_empty_as_none=True, strip=True):
 			data.append(dict(row))
 
 	return data
-
-
-def print_dict_as_table(d, PADDING=2, FORMAT_CHAR='-'):
-	headers = d.keys()
-	data = d.values()
-	print_as_table(table_headers=headers, data=data)
-
-def print_as_table(table_headers=[], data=[], PADDING=2, FORMAT_CHAR='-'):
-	column_lens = __get_max_col_widths(table_headers, data)
-	TABLE_LEN = (sum((column_lens[header] + PADDING + 1) 
-				for header in table_headers))
-
-	row_format = "|{:^{width}}"
-	# print line
-	print(FORMAT_CHAR * (TABLE_LEN + 1))
-
-	# Print column headers
-	for header in table_headers:
-		width = column_lens[header] + PADDING
-		print(row_format.format(header, width=width), end='')
-	print('|')
-	print(FORMAT_CHAR * (TABLE_LEN + 1))
-
-	# Print data
-	for row in data:
-		for tup, column_len in zip(row.values(), column_lens.values()):	
-			width = column_len + PADDING
-			print(row_format.format(tup, width=width), end='')
-		print("|")
-	
-def __get_max_col_widths(table_headers, data):
-	column_lens = {}
-	for header in table_headers:
-		max_data_len = max([len(str(item[header])) for item in data])
-		column_lens[header] = max(max_data_len, len(header))
-
-	for k, v in column_lens.items():
-		print(k, v)
-
-	return column_lens
 
