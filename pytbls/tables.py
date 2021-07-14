@@ -177,6 +177,13 @@ class MappyTable(TableDefinition):
 	    return: new data_list with joined data 
 		"""
 
+		dl_col, table_col = on
+
+		if dl_col not in data_list[0].keys():
+			raise ValueError("Cannot join data. Data list does not have column '{}' in its keys".format(dl_col))
+		elif table_col not in self.column_names:
+			raise ValueError("Cannot join data. Table {} does not have column '{}' in its keys".format(self.name, table_col))
+
 		select_list = []
 		if not select:
 			# select all fields in provided data and in DB Table if not specified
@@ -185,7 +192,7 @@ class MappyTable(TableDefinition):
 			# verify all fields in the select list are in this table
 			for col in select:
 				if col not in self.column_names:
-					raise pytbls.expections.DataValidationError("{} is an invalid column name for table {}".format(col, self.name))
+					raise pytbls.exceptions.DataValidationError("{} is an invalid column name for table {}".format(col, self.name))
 				full_colname = '{}.{}'.format(self.name, col)
 				select_list.append(full_colname)
 
@@ -210,8 +217,6 @@ class MappyTable(TableDefinition):
 		self.__driver.executemany(sql_insert, data_list, fast=True)
 		self.__driver.commit()
 
-
-		dl_col, table_col = on
 
 		query = SQLBuilder.build_query(
 			'#Temporary',
@@ -356,81 +361,6 @@ class ColumnDefinition(object):
 	def __hash__(self):
 		return hash(self.name)
 	
-	
-class MappyRow(object):
-	def __init__(self, tabledef, data_row, **data):
-		self._tabledef = tabledef
-		data_row.update(data)
-		self._data_row = data_row
-		self.__validate()
-
-	def set_pk(self, value):
-		pk = self.tabledef.primary_key
-		if pk in self.data_row or self.data_row.get(pk) is not None:
-			raise DataValidationError('Primary key has already been set for this row')
-		self.__update(pk, value)
-
-	def __update(self, key, value):
-		if key in self.tabledef.columns:
-			self.data_row[key.name] = value
-		else:
-			raise pytbls.exceptions.DataValidationError("Attribute '{}' does not exist on table {}".format(key, self.tabledef.name))
-
-	@property
-	def unmatched_data(self):
-		return {k:v for k, v in self.data_row.items() if k not in self.tabledef.column_names}
-	
-	@property
-	def values(self):
-		matched_values = [v for k, v in self.data_row.items() if k in self.tabledef.column_names]
-		return matched_values
-
-	@property
-	def column_names(self):
-		return [k for k, v in self.data_row.items() if k in self.tabledef.column_names]
-	
-
-	@property
-	def tabledef(self):
-		return self._tabledef
-
-	@property
-	def data_row(self):
-		return self._data_row
-
-	@property
-	def sql_insert(self):
-		num_values = len(self.column_names)
-		sql = 'INSERT INTO {} ('.format(self.tabledef.name)
-		sql += ('{}, ' * (num_values - 1) + '{})\n').format(*self.column_names)
-		sql += 'VALUES ('
-		sql += ('?, ' * (num_values - 1) + '?)')
-		return sql
-
-	def __validate(self):
-		pk_name = self.tabledef.primary_key.name
-		for column in self.tabledef.required_columns:
-			if column.name not in self.data_row and column.name != pk_name:
-				raise pytbls.exceptions.DataValidationError("Attribute '{}' is required and is None".format(column.name))
-
-	def __getitem__(self, key):
-		return self.data_row[key]
-
-	def __setitem(self, key, value):
-		self.__update(key, value)
-
-
-	def __repr__(self):
-		"""Returns repr for dictionary of all data
-		   Change to only print staged data 
-		"""
-		return self.data_row.__repr__()
-
-
-
-
-
-
 
 ########### data list functions ###############
 

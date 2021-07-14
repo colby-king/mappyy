@@ -2,7 +2,10 @@
 # My files....
 htest.py
 qtest.py
-
+iphone_join.py
+joined_iphones.csv
+test_data/
+test_scripts/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
