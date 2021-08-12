@@ -1,5 +1,4 @@
 import pyodbc
-#from pytbls.tables import MappyTable
 from pytbls.tables import *
 import csv
 

@@ -67,17 +67,46 @@ class SQLBuilder(object):
 				sql += '[{}] {}\n)'.format(*col)
 		return sql
 
+	@staticmethod
+	def create_tmp_table_id_store(column_list):
+		"""
+		returns sql that creates a temporary table given a list 
+		of tuples of column names and data types 
+		"""
+
+		sql = 'CREATE TABLE #Temporary (\n'
+		for col in column_list:
+			sql += '[{}] {},\n'.format(*col)
+
+		sql += '[{}] {}\n)'.format('insert_id', 'INTEGER')
+		return sql
+
 		
 	@staticmethod
-	def insert(tablename, columns):
+	def insert(tablename, columns, output_tablename=None, output_columns=[]):
+
+		if output_tablename and len(output_columns) < 1:
+			raise TypeError('No output columns specified.')
+
 
 		#Build SQL string
 		num_columns = len(columns)
 		sql = 'INSERT INTO {} ('.format(tablename)
 		sql += ('[{}], ' * (num_columns - 1) + '[{}])\n').format(*columns)
+		if output_tablename:
+			outline = (('INSERTED.{}, '*(len(output_columns) - 1)) + 'INSERTED.{}').format(*output_columns)
+			sql += 'OUTPUT {} INTO {}\n'.format(outline, output_tablename)
 		sql += 'VALUES ('
 		sql += ('?, ' * (num_columns - 1) + '?)')
 		return sql
+
+
+	@staticmethod
+	def insert_and_output(table, columns, output_table, pk):
+		sql = self.insert(table, columns)
+		sql += ('OUTPUT' + ('INSERTED.{},'*len(columns - 1)) + 'INSERTED.{}').format(*columns, pk)
+		return sql
+
 
 	@staticmethod
 	def update_by_pk(tablename, update_cols, pk):

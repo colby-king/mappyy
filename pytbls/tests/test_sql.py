@@ -1,6 +1,4 @@
 import pytest
-import mock 
-from pytest_mock import mocker 
 from pytbls.sql import SQLBuilder
 
 class TestSQLBuilder:
@@ -21,8 +19,19 @@ class TestSQLBuilder:
 
 
 	def test_insert(self, tablename, data):
-		expected = """INSERT INTO Address (AddressLine, City, State, PostalCode)\nVALUES (?, ?, ?, ?)"""
+		expected = """INSERT INTO Address ([AddressLine], [City], [State], [PostalCode])\nVALUES (?, ?, ?, ?)"""
 		actual = SQLBuilder.insert(tablename, data)
+		assert expected == actual
+
+	def test_insert_with_single_output(self, tablename, data):
+		expected = """INSERT INTO Address ([AddressLine], [City], [State], [PostalCode])\nOUTPUT INSERTED.City INTO #tmpTable\nVALUES (?, ?, ?, ?)"""
+		actual = SQLBuilder.insert(tablename, data, output_tablename='#tmpTable', output_columns=['City'])
+		assert expected == actual
+
+	def test_insert_with_multiple_output(self, tablename, data):
+		expected = """INSERT INTO Address ([AddressLine], [City], [State], [PostalCode])\nOUTPUT INSERTED.City, INSERTED.State, INSERTED.PostalCode INTO #tmpTable\nVALUES (?, ?, ?, ?)"""
+		actual = SQLBuilder.insert(tablename, data, output_tablename='#tmpTable', output_columns=['City', 'State', 'PostalCode'])
+		print(actual)
 		assert expected == actual
 
 	def test_update(self, tablename, data):
@@ -38,8 +47,6 @@ class TestSQLBuilder:
 	def test_delete_composite_pk(self, tablename):
 		expected = """DELETE FROM Address WHERE AddressID = ? AND PostalCode = ?"""
 		actual = SQLBuilder.delete_by_pk(tablename, ['AddressID', 'PostalCode'])
-		print(expected)
-		print(actual)
 		assert expected == actual
 
 	def test_build_query(self, tablename):

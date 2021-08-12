@@ -10,7 +10,7 @@ from collections import OrderedDict
 
 class TableDefinition(object):
 
-	def __init__(self, definition, tablename, schema, *args, create_col_defs=True):
+	def __init__(self, definition, tablename, schema=None, *args, create_col_defs=True):
 		self._columns = {}
 		self._name = tablename
 		self._schema = schema
@@ -88,195 +88,6 @@ class TableDefinition(object):
 	def __iter__(self):
 		return iter(self.columns)
 	
-
-class MappyTable(TableDefinition):
-
-	def __init__(self, driver, tabledef, tablename, *args):
-		super().__init__(tabledef, tablename, *args, create_col_defs=True)
-		self.__driver = driver
-
-
-	def get_import_csv(self, dest, required_only=True, include_index=False, *args):
-
-		if not required_only:
-			if len(args) > 0:
-				raise ValueError("Cannot specify additional columns if required_only is False")
-			headers = self.column_names
-		else:
-			headers = self.required_column_names
-			if args:
-				headers.append(args)
-
-		if not include_index:
-			headers.remove(self.primary_key.name)
-
-		write_csv(dest, headers, None)
-
-	def update(self, update_dict, pk=None):
-		
-		composite_key = type(pk) == list 
-		pks, update_cols = self.__validate_update_by_pk(update_dict)
-		sql_update = SQLBuilder.update_by_pk(self.name, list(update_cols.keys()), list(pks.keys()))
-		write_vals = (list(update_cols.values()) + list(pks.values()))
-		self.__driver.write(sql_update, *write_vals)
-
-
-	def __validate_update_by_pk(self, data_dict):
-		"""Checks that each PK col is present in the update_dict"""
-
-		pk_cols = OrderedDict()
-		for pk_col in self.pk_column_names:
-			if pk_col not in data_dict.keys():
-				raise pytbls.exceptions.DataValidationError("Primary key '{}' is required for update".format(pk_col))
-			pk_cols[pk_col] = data_dict[pk_col]
-
-		update_cols = OrderedDict()
-		for key, val in data_dict.items():
-			if key not in self.column_names:
-				raise pytbls.exceptions.DataValidationError("Attribute '{}' doesn't exist on {} and cannot be updated".format(self.name, key))
-			
-			if key not in self.pk_column_names:
-				update_cols[key] = data_dict[key]
-
-		if len(update_cols) > 0:
-			return (pk_cols, update_cols)
-
-		raise pytbls.exceptions.DataValidationError("No columns specified in the update dictionary")
-
-	def add(self, data_dict, commit=True, **data):
-		data_dict.update(data)
-		insertable = self.__validate_insert(data_dict)
-		sql_insert = SQLBuilder.insert(self.name, insertable.keys())
-		row_id = self.__driver.write(sql_insert, *insertable.values(), identity=True)
-
-		print('ROW ID: {}'.format(row_id))
-		if self.identity:
-			print(insertable)
-			insertable[self.identity.name] = row_id
-
-		return insertable
-
-
-	def add_all(self, data_list):
-		pass
-		
-
-
-	def join(self, data_list, select=None, on=(), join_type='INNER'):
-		"""
-		Joins a data list--a list of dictionaries--with a table in the 
-		database. 
-		
-		Arguments
-		param data_list: list of dictionaries, like a table 
-		param on: the name of the column in the data list you want to join on
-		param table_col: name of the column in the table you want to join the 
-					     data_list on. If none, it's defaul will be set to on.
-	    param: join_type: specifies the type of join operation you want to perform
-
-	    return: new data_list with joined data 
-		"""
-
-		dl_col, table_col = on
-
-		if dl_col not in data_list[0].keys():
-			raise ValueError("Cannot join data. Data list does not have column '{}' in its keys".format(dl_col))
-		elif table_col not in self.column_names:
-			raise ValueError("Cannot join data. Table {} does not have column '{}' in its keys".format(self.name, table_col))
-
-		select_list = []
-		if not select:
-			# select all fields in provided data and in DB Table if not specified
-			select_list = ['*']
-		else:
-			# verify all fields in the select list are in this table
-			for col in select:
-				if col not in self.column_names:
-					raise pytbls.exceptions.DataValidationError("{} is an invalid column name for table {}".format(col, self.name))
-				full_colname = '{}.{}'.format(self.name, col)
-				select_list.append(full_colname)
-
-			# select dl columns too
-			select_list = ['#Temporary.*'] + select_list
-
-		if not on:
-			raise TypeError("specify column in datalist and table to join: on=(dl_col, tbl_col)")
-
-
-		# try to get data types from first item and hope the list is consistent
-		# Add checks to validate table later 
-		columns = get_dl_columns(data_list[0])
-		sql_create_table = SQLBuilder.create_tmp_table(columns)
-
-		# Create the temporary table
-		self.__driver.write(sql_create_table, commit=True)
-
-		# Insert dl list into tmp DB table
-		col_names = [col[0] for col in columns]
-		sql_insert = SQLBuilder.insert('#Temporary', col_names)
-		self.__driver.executemany(sql_insert, data_list, fast=True)
-		self.__driver.commit()
-
-
-		query = SQLBuilder.build_query(
-			'#Temporary',
-			select_list=select_list,
-			table_joins=[(self.name, dl_col, table_col, join_type)]
-		)
-
-		data = self.__driver.read(query, to_dict=True)
-
-		return data
-
-
-	def __validate_cols(self, data_dict):
-
-		for column in self.required_columns:
-			if column.name not in data_dict.keys():
-				if not column.is_identity and not column.default_value:
-					raise pytbls.exceptions.DataValidationError(
-						"Attribute '{}' is required and is None".format(column.name)
-					)
-
-
-
-
-
-	def __validate_insert(self, data_dict, exact_match=False):
-		"""Checks that all columns required for insert are present.
-		   and returns a dict of insertable data (removes extra columns)
-		"""
-
-		for column in self.required_columns:
-			if column.name not in data_dict.keys():
-				if not column.is_identity and not column.default_value:
-					raise pytbls.exceptions.DataValidationError("Attribute '{}' is required and is None".format(column.name))
-
-		# Parse out columns that can be inserted 
-		if not exact_match:
-			insertable = {}
-			for col, val in data_dict.items():
-				if col in self.column_names: 
-					insertable[col] = val
-			return insertable
-
-		return data_dict
-
-
-	def test_data(self, data_dict, **data):
-		pass
-
-
-	def add_all(self, data_list, chunksize=None):
-		pass
-
-	def print_info(self):
-		data = [col.definition for col in self.columns]
-		headers = list(data[0].keys())
-		data = [col.values() for col in data]
-		print(tabulate(data, headers=headers))
-	
-
 class ColumnDefinition(object):
 
 	def __init__(self, definition, **kwargs):
@@ -356,10 +167,264 @@ class ColumnDefinition(object):
 	def __eq__(self, other):
 		if isinstance(other, ColumnDefinition):
 			return other.name == self.name
+		elif isinstance(other, str):
+			print('Checking string equality on:', other)
+			return other.lower() == self.name.lower()
 		return False
 
 	def __hash__(self):
 		return hash(self.name)
+
+class MappyTable(TableDefinition):
+
+	def __init__(self, driver, tabledef, tablename, *args):
+		super().__init__(tabledef, tablename, *args, create_col_defs=True)
+		self.__driver = driver
+
+
+	def get_import_csv(self, dest, required_only=True, include_index=False, *args):
+
+		if not required_only:
+			if len(args) > 0:
+				raise ValueError("Cannot specify additional columns if required_only is False")
+			headers = self.column_names
+		else:
+			headers = self.required_column_names
+			if args:
+				headers.append(args)
+
+		if not include_index:
+			headers.remove(self.primary_key.name)
+
+		write_csv(dest, headers, None)
+
+	def update(self, update_dict, pk=None):
+		
+		composite_key = type(pk) == list 
+		pks, update_cols = self.__validate_update_by_pk(update_dict)
+		sql_update = SQLBuilder.update_by_pk(self.name, list(update_cols.keys()), list(pks.keys()))
+		write_vals = (list(update_cols.values()) + list(pks.values()))
+		self.__driver.write(sql_update, *write_vals)
+
+
+	def update_all(self, data_list):
+
+		# validate the input and parse columns 
+		pks, update_cols = self.__validate_update_by_pk(data_list[0])
+		# make sure our data list is in tabular format
+		validate_dl(data_list)
+		# generate update statement
+		sql_update = SQLBuilder.update_by_pk(self.name, list(update_cols.keys()), list(pks.keys()))
+
+		print(pks)
+		print(update_cols)
+		print(sql_update)
+
+
+
+	def _validate_cols(self, data_dict):
+
+		for column in self.required_columns:
+			if column not in list(data_dict.keys()):
+				if not column.is_identity and not column.default_value:
+					raise pytbls.exceptions.DataValidationError(
+						"Attribute '{}' is required and is None".format(column.name)
+					)
+
+
+	def __validate_insert(self, data_dict, exact_match=False):
+		"""Checks that all columns required for insert are present.
+		   and returns a dict of insertable data (removes extra columns)
+		"""
+
+		# Check that every required column is present in data_dict 
+		for column in self.required_columns:
+			if column.name not in data_dict.keys():
+				# Exclude identity and columns with defaults
+				if not column.is_identity and not column.default_value:
+					raise pytbls.exceptions.DataValidationError("Attribute '{}' is required and is None".format(column.name))
+
+		# Parse out columns that can be inserted 
+		if not exact_match:
+			insertable = {}
+			for col, val in data_dict.items():
+				if col in self.column_names: 
+					insertable[col] = val
+			return insertable
+		# Otherwise, check that they all can be inserted
+		else:
+			for col in data_dict.keys():
+				if col not in self.columns:
+					raise pytbls.exceptions.DataValidationError(
+						"Cannot match '{}'' to column in {}. Fix the column name in the input or set exact_match to False".format(col, self.name)
+					)
+			return data_dict
+
+
+	def __validate_update_by_pk(self, data_dict):
+		"""Checks that each PK col is present in the update_dict"""
+
+		pk_cols = OrderedDict()
+		for pk_col in self.pk_column_names:
+			if pk_col not in data_dict.keys():
+				raise pytbls.exceptions.DataValidationError("Primary key '{}' is required for update".format(pk_col))
+			pk_cols[pk_col] = data_dict[pk_col]
+
+		update_cols = OrderedDict()
+		for key, val in data_dict.items():
+			if key not in self.column_names:
+				raise pytbls.exceptions.DataValidationError("Attribute '{}' doesn't exist on {} and cannot be updated".format(self.name, key))
+			
+			if key not in self.pk_column_names:
+				update_cols[key] = data_dict[key]
+
+		if len(update_cols) > 0:
+			return (pk_cols, update_cols)
+
+		raise pytbls.exceptions.DataValidationError("No columns specified in the update dictionary")
+
+	def _trim_data_dict(self, data_dict):
+		insertable = {}
+		for col, val in data_dict.items():
+			if col in self.columns:
+				insertable[col] = val 
+
+		return insertable
+
+	def add(self, data_dict, exact_match=True, **data):
+		# update data_dict with extra kwargs 
+		data_dict.update(data)
+		# Separate column checking from the column matching
+		self._validate_cols(data_dict)
+		insertable = data_dict
+		if not exact_match:
+			insertable = self._trim_data_dict(data_dict)
+		sql_insert = SQLBuilder.insert(self.name, insertable.keys())
+		row_id = self.__driver.write(sql_insert, *insertable.values(), identity=True)
+
+		if self.identity:
+			insertable[self.identity.name] = row_id
+
+		return insertable
+
+
+	def add_all(self, data_list, exact_match=False, chunksize=None):
+		"""
+		Adds a data list to a table in the database
+
+		Arguments:
+		param data_list: a list of dictionaries in tabular format
+		param exact_match: removes key/value pairs that can't be matched on 
+						   the table definition if False. Assumes keys match
+						   table column names if True
+		param chunksize: specify # of records to commit as a time
+
+		return new data_list with appended insert identities 
+		"""
+		
+		# make sure data_list is in tabular format
+		validate_dl(data_list)
+		# peek to see we have all of the right columns 
+		self._validate_cols(data_list[0])
+
+		# if specifies extraneous columns, remove them
+		if not exact_match:
+			data_list = [self._trim_data_dict(d) for d in data_list]
+
+		# create temporary table to hold ids
+		sql_id_store_table = SQLBuilder.create_tmp_table([('OutputID', 'INT')])
+		self.__driver.write(sql_id_store_table, commit=True)
+
+
+		sql_insert = SQLBuilder.insert_and_output()
+		self.__driver.executemany(sql_insert, data_list, fast=True)
+
+		
+
+		
+
+
+	def join(self, data_list, select=None, on=(), join_type='INNER'):
+		"""
+		Joins a data list--a list of dictionaries--with a table in the 
+		database. 
+		
+		Arguments
+		param data_list: list of dictionaries, like a table 
+		param on: the name of the column in the data list you want to join on
+		param table_col: name of the column in the table you want to join the 
+					     data_list on. If none, it's defaul will be set to on.
+	    param: join_type: specifies the type of join operation you want to perform
+
+	    return: new data_list with joined data 
+		"""
+
+		dl_col, table_col = on
+
+		if dl_col not in data_list[0].keys():
+			raise ValueError("Cannot join data. Data list does not have column '{}' in its keys".format(dl_col))
+		elif table_col not in self.column_names:
+			raise ValueError("Cannot join data. Table {} does not have column '{}' in its keys".format(self.name, table_col))
+
+		select_list = []
+		if not select:
+			# select all fields in provided data and in DB Table if not specified
+			select_list = ['*']
+		else:
+			# verify all fields in the select list are in this table
+			for col in select:
+				if col not in self.column_names:
+					raise pytbls.exceptions.DataValidationError("{} is an invalid column name for table {}".format(col, self.name))
+				full_colname = '{}.{}'.format(self.name, col)
+				select_list.append(full_colname)
+
+			# select dl columns too
+			select_list = ['#Temporary.*'] + select_list
+
+		if not on:
+			raise TypeError("specify column in datalist and table to join: on=(dl_col, tbl_col)")
+
+
+		# try to get data types from first item and hope the list is consistent
+		# Add checks to validate table later 
+		columns = get_dl_columns(data_list[0])
+		
+		# Create the temporary table
+		sql_create_table = SQLBuilder.create_tmp_table(columns)
+		self.__driver.write(sql_create_table, commit=True)
+
+		# Insert dl list into tmp DB table
+		col_names = [col[0] for col in columns]
+		sql_insert = SQLBuilder.insert('#Temporary', col_names)
+		self.__driver.executemany(sql_insert, data_list, fast=True)
+		self.__driver.commit()
+
+
+		query = SQLBuilder.build_query(
+			'#Temporary',
+			select_list=select_list,
+			table_joins=[(self.name, dl_col, table_col, join_type)]
+		)
+
+		data = self.__driver.read(query, to_dict=True)
+
+		return data
+
+
+
+	def test_data(self, data_dict, **data):
+		pass
+
+		
+
+	def print_info(self):
+		data = [col.definition for col in self.columns]
+		headers = list(data[0].keys())
+		data = [col.values() for col in data]
+		print(tabulate(data, headers=headers))
+	
+
+
 	
 
 ########### data list functions ###############

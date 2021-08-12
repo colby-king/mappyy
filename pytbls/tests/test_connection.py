@@ -1,6 +1,4 @@
 import pytest
-import mock 
-from pytest_mock import mocker 
 from pytbls.connection import *
 
 class TestDriver:

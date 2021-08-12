@@ -1,6 +1,7 @@
 import pytest
-import mock 
-from pytest_mock import mocker 
+#import mock 
+#from pytest_mock import mocker
+#from unittest.mock import create_autospec
 from pytbls.tables import (
 	validate_dl,
 	get_dl_columns,
