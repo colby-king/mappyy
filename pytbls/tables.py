@@ -4,7 +4,10 @@ from abc import ABC
 import csv
 import pytbls.exceptions
 from pytbls.sql import * 
-from pytbls.sql import __PY_TO_SQLTYPES
+from pytbls.sql import (
+	_PY_TO_SQLTYPES,
+	_SQLTYPES_TO_PY
+)
 from tabulate import tabulate 
 from collections import OrderedDict
 
@@ -99,7 +102,7 @@ class ColumnDefinition(object):
 				self._max_length = definition.get('max_length') or kwargs.get('max_length')
 				self._scale = definition.get('scale') or kwargs.get('scale')
 				self._is_nullable = definition.get('is_nullable') or kwargs.get('is_nullable')
-				self._data_type = definition.get('type') or kwargs.get('type')
+				self._data_type = definition.get('data_type') or kwargs.get('data_type')
 				self._column_id = definition.get('column_id') or kwargs.get('column_id')
 				self._is_pk = definition.get('is_primary_key')
 				self._is_identity = definition.get('is_identity')
@@ -162,18 +165,23 @@ class ColumnDefinition(object):
 		return self.name
 
 	def __repr__(self):
-		return 'Column(name: {})'.format(self.name)
+		return 'Column(name: {}, nullable: {}, data type: {})'.format(
+			self.name,
+			self.is_nullable,
+			self.data_type
+		)
 
 	def __eq__(self, other):
 		if isinstance(other, ColumnDefinition):
 			return other.name == self.name
 		elif isinstance(other, str):
-			print('Checking string equality on:', other)
 			return other.lower() == self.name.lower()
 		return False
 
 	def __hash__(self):
 		return hash(self.name)
+
+
 
 class MappyTable(TableDefinition):
 
@@ -332,14 +340,38 @@ class MappyTable(TableDefinition):
 			data_list = [self._trim_data_dict(d) for d in data_list]
 
 		# create temporary table to hold ids
-		sql_id_store_table = SQLBuilder.create_tmp_table([('OutputID', 'INT')])
-		self.__driver.write(sql_id_store_table, commit=True)
+		tmp_table_cols = []
+		tmp_table_name = '#IDStore'
+		for col in self.primary_key:
+			tmp_table_cols.append(
+				(col.name, col.data_type)
+
+			)
+		sql_id_store = SQLBuilder.create_table(tmp_table_name, tmp_table_cols)
+		self.__driver.write(sql_id_store, commit=True)
 
 
-		sql_insert = SQLBuilder.insert_and_output()
+		insert_cols = list(data_list[0].keys())
+		sql_insert = SQLBuilder.insert(
+			self.name, 
+			insert_cols, 
+			output_table=tmp_table_name,
+			output_columns=self.pk_column_names
+		)
 		self.__driver.executemany(sql_insert, data_list, fast=True)
 
-		
+		sql_query_insert_ids = SQLBuilder.build_query(tmp_table_name, select_list=self.pk_column_names)
+
+		ids = self.__driver.read(sql_query_insert_ids, to_dict=True)
+
+		assert(len(data_list) == len(ids))
+
+		for data, identity in zip(data_list, ids):
+			data.update(identity)
+
+		for item in data_list:
+			print(item)
+		return data
 
 		
 
@@ -464,7 +496,7 @@ def get_dl_columns(data_row):
 		try:
 			columns.append((
 				key,
-				__PY_TO_SQLTYPES[type(tup)]
+				_PY_TO_SQLTYPES[type(tup)]
 			))
 		except KeyError:
 			raise pytbls.exceptions.TypeNotSupportedError("type {} not supported by mappy".format(type(tup)))

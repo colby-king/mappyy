@@ -53,13 +53,13 @@ class SQLBuilder(object):
 
 
 	@staticmethod
-	def create_tmp_table(column_list):
+	def create_table(tablename, column_list):
 		"""
 		returns sql that creates a temporary table given a list 
 		of tuples of column names and data types 
 		"""
 
-		sql = 'CREATE TABLE #Temporary (\n'
+		sql = 'CREATE TABLE {} (\n'.format(tablename)
 		for col in column_list:
 			if col != column_list[-1]:
 				sql += '[{}] {},\n'.format(*col)
@@ -83,9 +83,9 @@ class SQLBuilder(object):
 
 		
 	@staticmethod
-	def insert(tablename, columns, output_tablename=None, output_columns=[]):
+	def insert(tablename, columns, output_table=None, output_columns=[]):
 
-		if output_tablename and len(output_columns) < 1:
+		if output_table and len(output_columns) < 1:
 			raise TypeError('No output columns specified.')
 
 
@@ -93,9 +93,9 @@ class SQLBuilder(object):
 		num_columns = len(columns)
 		sql = 'INSERT INTO {} ('.format(tablename)
 		sql += ('[{}], ' * (num_columns - 1) + '[{}])\n').format(*columns)
-		if output_tablename:
+		if output_table:
 			outline = (('INSERTED.{}, '*(len(output_columns) - 1)) + 'INSERTED.{}').format(*output_columns)
-			sql += 'OUTPUT {} INTO {}\n'.format(outline, output_tablename)
+			sql += 'OUTPUT {} INTO {}\n'.format(outline, output_table)
 		sql += 'VALUES ('
 		sql += ('?, ' * (num_columns - 1) + '?)')
 		return sql
@@ -137,7 +137,7 @@ class SQLBuilder(object):
 		return sql
 
 
-__PY_TO_SQLTYPES = {
+_PY_TO_SQLTYPES = {
 	
 	None: 'NULL',
 	bool: 'BIT',
@@ -148,4 +148,18 @@ __PY_TO_SQLTYPES = {
 	datetime.time: 'TIME',
 	datetime.datetime: 'TIMESTAMP',
 	uuid.UUID: 'GUID'
+}
+
+_SQLTYPES_TO_PY = {
+	
+	'null': None,
+	'bit': bool,
+	'int': int,
+	'integer': int,
+	'double precision': float,
+	'varchar': str,
+	'date': datetime.date,
+	'time': datetime.time,
+	'datetime': datetime.datetime,
+	'guid': uuid.UUID
 }

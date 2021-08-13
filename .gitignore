@@ -4,8 +4,10 @@ htest.py
 qtest.py
 iphone_join.py
 joined_iphones.csv
+test*.py
 test_data/
 test_scripts/
+test.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
